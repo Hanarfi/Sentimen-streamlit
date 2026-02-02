@@ -6,6 +6,8 @@ import emoji
 import csv
 
 import nltk
+nltk.download('stopwords')
+nltk.download('punkt_tab')
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 
@@ -430,3 +432,4 @@ else:
 
 st.divider()
 st.caption("Tips: Untuk online deploy, gunakan Streamlit Community Cloud dan pastikan requirements.txt berisi library yang dipakai.")
+
