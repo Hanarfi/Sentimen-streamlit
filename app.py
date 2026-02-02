@@ -281,21 +281,21 @@ else:
             st.success("Stemming selesai.")
 
     with c6:
-    if st.button("6) Filter Lexicon", disabled=(st.session_state.lex_pos is None or st.session_state.lex_neg is None)):
-        df = st.session_state.df_step.copy()
+        if st.button("6) Filter Lexicon", disabled=(st.session_state.lex_pos is None or st.session_state.lex_neg is None)):
+            df = st.session_state.df_step.copy()
 
-        # pastikan token ada (kalau belum, buat dari content)
-        tokens = df["content"].astype(str).str.split()
-
-        df["content_list"] = tokens.apply(
-            lambda toks: filter_tokens_by_lexicon(toks, st.session_state.lex_pos, st.session_state.lex_neg)
-        )
-
-        # balikkan lagi ke content string agar step berikutnya tetap konsisten
-        df["content"] = df["content_list"].apply(lambda toks: " ".join(toks))
-
-        st.session_state.df_step = df
-        st.success("Filter lexicon selesai. Kata di luar lexicon dihapus.")
+            # pastikan token ada (kalau belum, buat dari content)
+            tokens = df["content"].astype(str).str.split()
+    
+            df["content_list"] = tokens.apply(
+                lambda toks: filter_tokens_by_lexicon(toks, st.session_state.lex_pos, st.session_state.lex_neg)
+            )
+    
+            # balikkan lagi ke content string agar step berikutnya tetap konsisten
+            df["content"] = df["content_list"].apply(lambda toks: " ".join(toks))
+    
+            st.session_state.df_step = df
+            st.success("Filter lexicon selesai. Kata di luar lexicon dihapus.")
 
     # remove empty rows (optional step)
     if st.button("Bersihkan baris kosong/NaN setelah preprocessing"):
@@ -466,5 +466,6 @@ else:
 
 st.divider()
 st.caption("Tips: Untuk online deploy, gunakan Streamlit Community Cloud dan pastikan requirements.txt berisi library yang dipakai.")
+
 
 
