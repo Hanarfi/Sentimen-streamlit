@@ -79,6 +79,15 @@ def stem_text(text: str) -> str:
     stemmer = get_sastrawi_stemmer()
     return stemmer.stem(str(text))
 
+def filter_tokens_by_lexicon(tokens, lex_pos: dict, lex_neg: dict):
+    """
+    Hanya menyisakan kata yang ada di lexicon positif atau negatif.
+    Kata yang tidak ada di kedua lexicon akan dibuang.
+    """
+    if tokens is None:
+        return []
+    allowed = set(lex_pos.keys()) | set(lex_neg.keys())
+    return [t for t in tokens if t in allowed]
 
 # =========================
 # LOAD KAMUS & LEXICON (UPLOAD)
@@ -246,7 +255,7 @@ st.header("STEP 1 — Preprocessing (bertahap)")
 if st.session_state.df_step is None:
     st.info("Load dataset dulu di STEP 0.")
 else:
-    c1, c2, c3, c4, c5 = st.columns(5)
+    c1, c2, c3, c4, c5, c6 = st.columns(6)
 
     with c1:
         if st.button("1) Case Folding"):
@@ -271,6 +280,23 @@ else:
             st.session_state.df_step["content"] = st.session_state.df_step["content"].apply(stem_text)
             st.success("Stemming selesai.")
 
+    with c6:
+    if st.button("6) Filter Lexicon", disabled=(st.session_state.lex_pos is None or st.session_state.lex_neg is None)):
+        df = st.session_state.df_step.copy()
+
+        # pastikan token ada (kalau belum, buat dari content)
+        tokens = df["content"].astype(str).str.split()
+
+        df["content_list"] = tokens.apply(
+            lambda toks: filter_tokens_by_lexicon(toks, st.session_state.lex_pos, st.session_state.lex_neg)
+        )
+
+        # balikkan lagi ke content string agar step berikutnya tetap konsisten
+        df["content"] = df["content_list"].apply(lambda toks: " ".join(toks))
+
+        st.session_state.df_step = df
+        st.success("Filter lexicon selesai. Kata di luar lexicon dihapus.")
+
     # remove empty rows (optional step)
     if st.button("Bersihkan baris kosong/NaN setelah preprocessing"):
         dfp = st.session_state.df_step.copy()
@@ -281,6 +307,13 @@ else:
         st.success("Baris kosong/NaN dihapus.")
 
     show_df(st.session_state.df_step, "Preview Setelah Preprocessing")
+    
+    if st.button("Hapus baris yang kosong setelah Filter Lexicon"):
+    dfp = st.session_state.df_step.copy()
+    dfp["content"] = dfp["content"].fillna("").astype(str)
+    dfp = dfp[dfp["content"].str.strip() != ""].reset_index(drop=True)
+    st.session_state.df_step = dfp
+    st.success("Baris kosong setelah filter lexicon berhasil dihapus.")
 
 
 # =========================
@@ -297,7 +330,8 @@ else:
         df = st.session_state.df_step.copy()
 
         # tokenization as in your code
-        df["content_list"] = df["content"].astype(str).str.split()
+        if "content_list" not in df.columns:
+            df["content_list"] = df["content"].astype(str).str.split()
 
         results = df["content_list"].apply(
             lambda toks: sentiment_analysis_lexicon_indonesia(toks, st.session_state.lex_pos, st.session_state.lex_neg)
@@ -432,4 +466,5 @@ else:
 
 st.divider()
 st.caption("Tips: Untuk online deploy, gunakan Streamlit Community Cloud dan pastikan requirements.txt berisi library yang dipakai.")
+
 
