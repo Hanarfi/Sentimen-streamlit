@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import re
 import emoji
+import io
 import csv
 
 import nltk
@@ -19,9 +20,105 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 
-# =========================
+# =========================================================
+# THEME (Dark Modern) - CSS
+# =========================================================
+def inject_dark_theme():
+    st.markdown(
+        """
+        <style>
+            /* Page background */
+            .stApp {
+                background: radial-gradient(1200px 700px at 10% 10%, #111827 0%, #0b1020 40%, #050814 100%);
+                color: #E5E7EB;
+            }
+
+            /* Sidebar */
+            section[data-testid="stSidebar"] {
+                background: linear-gradient(180deg, #0b1020 0%, #060a17 100%);
+                border-right: 1px solid rgba(255,255,255,0.06);
+            }
+
+            /* Headings */
+            h1, h2, h3, h4 {
+                color: #F9FAFB !important;
+                letter-spacing: 0.2px;
+            }
+
+            /* Text */
+            p, li, label, div, span {
+                color: #E5E7EB;
+            }
+
+            /* Buttons */
+            .stButton>button {
+                background: linear-gradient(90deg, #2563EB 0%, #7C3AED 100%);
+                color: white;
+                border: 0;
+                border-radius: 12px;
+                padding: 0.6rem 1rem;
+                font-weight: 600;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+                transition: transform 0.06s ease-in-out;
+            }
+            .stButton>button:hover {
+                transform: translateY(-1px);
+                filter: brightness(1.05);
+            }
+
+            /* Secondary buttons (download etc.) */
+            .stDownloadButton>button {
+                background: linear-gradient(90deg, #10B981 0%, #22C55E 100%);
+                color: #052e1a;
+                border: 0;
+                border-radius: 12px;
+                padding: 0.6rem 1rem;
+                font-weight: 700;
+            }
+
+            /* Dataframe container */
+            div[data-testid="stDataFrame"] {
+                border: 1px solid rgba(255,255,255,0.06);
+                border-radius: 12px;
+                overflow: hidden;
+            }
+
+            /* Cards (custom) */
+            .card {
+                background: rgba(255,255,255,0.04);
+                border: 1px solid rgba(255,255,255,0.08);
+                border-radius: 16px;
+                padding: 16px 18px;
+                box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+            }
+            .muted {
+                color: rgba(229,231,235,0.75);
+                font-size: 0.95rem;
+            }
+            .badge {
+                display: inline-block;
+                padding: 4px 10px;
+                border-radius: 999px;
+                background: rgba(37,99,235,0.18);
+                border: 1px solid rgba(37,99,235,0.25);
+                color: #BFDBFE;
+                font-weight: 700;
+                font-size: 0.85rem;
+            }
+
+            /* Inputs */
+            .stTextInput input, .stSelectbox div, .stFileUploader div {
+                border-radius: 12px !important;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+# =========================================================
 # NLTK setup (Cloud-friendly)
-# =========================
+# =========================================================
 @st.cache_resource
 def ensure_nltk():
     try:
@@ -32,35 +129,92 @@ def ensure_nltk():
 ensure_nltk()
 
 
-# =========================
-# --- FUNGSI PREPROCESSING (dari kode kamu, direvisi agar cloud-stable) ---
-# =========================
+# =========================================================
+# Load resources from repo (no user input needed)
+# =========================================================
+KAMUS_PATH = "kamuskatabaku (1).xlsx"
+LEX_POS_PATH = "positive.csv"
+LEX_NEG_PATH = "negative.csv"
+
+
+@st.cache_resource
+def load_kamus_repo(path: str) -> dict:
+    df = pd.read_excel(path)
+    # expects columns: non_standard, standard_word
+    return dict(zip(df["non_standard"], df["standard_word"]))
+
+
+@st.cache_resource
+def load_lexicon_repo(path: str) -> dict:
+    lex = {}
+    with open(path, "r", encoding="utf-8", errors="ignore") as f:
+        reader = csv.reader(f, delimiter=",")
+        for row in reader:
+            if len(row) >= 2:
+                try:
+                    lex[row[0]] = int(row[1])
+                except:
+                    pass
+    return lex
+
+
+def safe_load_resources():
+    errors = []
+    kamus = None
+    lex_pos = None
+    lex_neg = None
+
+    try:
+        kamus = load_kamus_repo(KAMUS_PATH)
+    except Exception as e:
+        errors.append(f"Gagal load kamus: {e}")
+
+    try:
+        lex_pos = load_lexicon_repo(LEX_POS_PATH)
+    except Exception as e:
+        errors.append(f"Gagal load lexicon positive: {e}")
+
+    try:
+        lex_neg = load_lexicon_repo(LEX_NEG_PATH)
+    except Exception as e:
+        errors.append(f"Gagal load lexicon negative: {e}")
+
+    return kamus, lex_pos, lex_neg, errors
+
+
+# =========================================================
+# Preprocessing functions (stabil, sesuai revisi)
+# =========================================================
 def CaseFolding(text: str) -> str:
     return str(text).lower()
 
+def normalisasi_dengan_kamus(text: str, kamus_dict: dict) -> str:
+    words = str(text).split()
+    normalized = [kamus_dict.get(w, w) for w in words]
+    return " ".join(normalized)
+
 def datacleaning(text: str) -> str:
     text = str(text)
-    text = re.sub(r'@[A-Za-z0-9]+', '', text)          # mention
-    text = re.sub(r'#[A-Za-z0-9]+', '', text)          # hashtag
-    text = re.sub(r"[^a-z\s]", " ", text)              # angka & simbol
-    text = re.sub(r'RT[\s]', '', text)                 # RT
-    text = re.sub(r'RT[?|$|.|@!&:_=)(><,]', '', text)  # simbol
-    text = re.sub(r'http\S+', '', text)                # link
-    text = re.sub(r'[0-9]', '', text)                  # angka
-    text = text.replace('\n', ' ')
-    text = text.strip(' ')
-    text = re.sub('s://t.co/', '', text)
-    text = re.sub(r'\d+', '', text)
-    text = text.replace('"', '')
-    text = re.sub(r'(.)\1{2,}', r'\1', text)
-    text = emoji.replace_emoji(text, replace='')
-    text = re.sub(r'\s+', ' ', text).strip()
+    text = re.sub(r"@[A-Za-z0-9]+", "", text)
+    text = re.sub(r"#[A-Za-z0-9]+", "", text)
+    text = re.sub(r"[^a-z\s]", " ", text)
+    text = re.sub(r"RT[\s]", "", text)
+    text = re.sub(r"RT[?|$|.|@!&:_=)(><,]", "", text)
+    text = re.sub(r"http\S+", "", text)
+    text = re.sub(r"[0-9]", "", text)
+    text = text.replace("\n", " ")
+    text = text.strip(" ")
+    text = re.sub("s://t.co/", "", text)
+    text = re.sub(r"\d+", "", text)
+    text = text.replace('"', "")
+    text = re.sub(r"(.)\1{2,}", r"\1", text)
+    text = emoji.replace_emoji(text, replace="")
+    text = re.sub(r"\s+", " ", text).strip()
     return text
 
 def remove_stopwords(text: str) -> str:
-    # Revisi: pakai split() agar tidak butuh NLTK punkt/punkt_tab
-    stop_words = set(stopwords.words('indonesian'))
-    tokens = str(text).split()
+    stop_words = set(stopwords.words("indonesian"))
+    tokens = str(text).split()   # <- aman (tidak perlu punkt)
     filtered = [w for w in tokens if w not in stop_words]
     return " ".join(filtered)
 
@@ -73,33 +227,14 @@ def stem_text(text: str) -> str:
     stemmer = get_sastrawi_stemmer()
     return stemmer.stem(str(text))
 
+def filter_tokens_by_lexicon(tokens, lex_pos: dict, lex_neg: dict):
+    allowed = set(lex_pos.keys()) | set(lex_neg.keys())
+    return [t for t in (tokens or []) if t in allowed]
 
-# =========================
-# LOAD KAMUS & LEXICON (UPLOAD)
-# =========================
-def load_kamus_from_excel(uploaded_excel) -> dict:
-    df = pd.read_excel(uploaded_excel)
-    # kolom harus: non_standard, standard_word
-    kamus_dict = dict(zip(df['non_standard'], df['standard_word']))
-    return kamus_dict
 
-def normalisasi_dengan_kamus(text: str, kamus_dict: dict) -> str:
-    words = str(text).split()
-    normalized = [kamus_dict.get(w, w) for w in words]
-    return " ".join(normalized)
-
-def load_lexicon_csv(uploaded_csv) -> dict:
-    lex = {}
-    content = uploaded_csv.getvalue().decode("utf-8", errors="ignore").splitlines()
-    reader = csv.reader(content, delimiter=',')
-    for row in reader:
-        if len(row) >= 2:
-            try:
-                lex[row[0]] = int(row[1])
-            except:
-                pass
-    return lex
-
+# =========================================================
+# Labeling Lexicon
+# =========================================================
 def sentiment_analysis_lexicon_indonesia(tokens, lex_pos: dict, lex_neg: dict):
     score = 0
     for w in tokens:
@@ -117,80 +252,73 @@ def sentiment_analysis_lexicon_indonesia(tokens, lex_pos: dict, lex_neg: dict):
         sent = "netral"
     return score, sent
 
-def filter_tokens_by_lexicon(tokens, lex_pos: dict, lex_neg: dict):
-    """
-    Tahap tambahan: hanya menyisakan kata yang ada di lexicon positif/negatif.
-    Berguna untuk membuang typo/OOV (out-of-vocabulary).
-    """
-    if tokens is None:
-        return []
-    allowed = set(lex_pos.keys()) | set(lex_neg.keys())
-    return [t for t in tokens if t in allowed]
 
+# =========================================================
+# Helpers
+# =========================================================
+def show_preview(df: pd.DataFrame, title: str, n=20):
+    st.markdown(f"#### {title}")
+    st.dataframe(df.head(n), use_container_width=True)
 
-# =========================
-# UTIL UI
-# =========================
-def show_df(df, title, max_rows=200):
-    st.subheader(title)
-    st.write(f"Rows: {len(df)} | Columns: {len(df.columns)}")
-    st.dataframe(df.head(max_rows))
+def drop_empty_rows(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    out["content"] = out["content"].fillna("").astype(str)
+    out = out[out["content"].str.strip() != ""]
+    out = out.reset_index(drop=True)
+    return out
+
+def to_excel_bytes(df: pd.DataFrame, sheet_name="data") -> bytes:
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name=sheet_name)
+    return buffer.getvalue()
 
 def plot_confusion(cm, labels=("negatif", "positif"), title="Confusion Matrix"):
     fig = plt.figure(figsize=(6, 4))
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
                 xticklabels=list(labels), yticklabels=list(labels))
-    plt.xlabel("Predicted Label")
-    plt.ylabel("True Label")
+    plt.xlabel("Predicted")
+    plt.ylabel("True")
     plt.title(title)
     st.pyplot(fig)
     plt.close(fig)
 
 
-# =========================
-# STREAMLIT APP
-# =========================
-st.set_page_config(page_title="Sentiment Analysis Step-by-Step", layout="wide")
-st.title("Sentiment Analysis Ulasan (Step-by-Step) — TF-IDF + SVM")
-st.markdown("""
-Aplikasi ini menjalankan proses bertahap:
-1) Upload data (kolom bebas) → 2) Preprocessing per tahap → 3) Filter Lexicon (hapus typo/OOV) →  
-4) Lexicon Labeling → 5) TF-IDF → 6) Train/Test SVM → 7) Evaluasi → 8) Export
-""")
-
-
-# Sidebar: file upload
-st.sidebar.header("Upload File")
-data_file = st.sidebar.file_uploader("Upload CSV (nama kolom bebas, pilih kolom teks di STEP 0)", type=["csv"])
-kamus_file = st.sidebar.file_uploader("Upload Kamus Kata Baku (Excel: non_standard, standard_word)", type=["xlsx"])
-lex_pos_file = st.sidebar.file_uploader("Upload Lexicon Positive (CSV: kata,skor)", type=["csv"])
-lex_neg_file = st.sidebar.file_uploader("Upload Lexicon Negative (CSV: kata,skor)", type=["csv"])
-
-st.sidebar.divider()
-test_size = st.sidebar.slider("Test size", 0.1, 0.4, 0.2, 0.05)
-random_state = st.sidebar.number_input("Random state", min_value=0, value=42, step=1)
-C = st.sidebar.number_input("SVM C", min_value=0.01, value=1.0, step=0.1)
-kernel = st.sidebar.selectbox("SVM kernel", ["linear", "rbf", "poly", "sigmoid"], index=0)
-
-st.sidebar.divider()
-st.sidebar.caption("Catatan: Normalisasi butuh file kamus. Filter Lexicon & Labeling butuh lexicon pos+neg.")
-
-
-# Session state init
+# =========================================================
+# Session State
+# =========================================================
 def init_state():
     defaults = {
+        "menu": "Home",
         "raw_df": None,
-        "df_step": None,
-        "chosen_text_column": None,
-        "kamus_dict": None,
+        "df_work": None,
+        "chosen_col": None,
+
+        # resources
+        "kamus": None,
         "lex_pos": None,
         "lex_neg": None,
+        "res_errors": [],
+
+        # preprocessing checkpoints
+        "pp_casefold": None,
+        "pp_normal": None,
+        "pp_clean": None,
+        "pp_stop": None,
+        "pp_stem": None,
+        "pp_filterlex": None,
+        "pp_labeled": None,
+
+        # model artifacts
         "tfidf": None,
+        "tfidf_df": None,
+        "X_tfidf": None,
+        "X_train": None, "X_test": None,
+        "y_train": None, "y_test": None,
         "svm": None,
-        "X_train": None, "X_test": None, "y_train": None, "y_test": None,
         "y_pred": None,
         "report": None,
-        "cm": None,
+        "cm": None
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -199,291 +327,482 @@ def init_state():
 init_state()
 
 
-# =========================
-# STEP 0: Load dataset & pilih kolom teks (GENERIC)
-# =========================
-st.header("STEP 0 — Load Dataset (Kolom Bebas)")
+# =========================================================
+# Page config & theme
+# =========================================================
+st.set_page_config(page_title="Sentiment Analysis (TF-IDF + SVM)", layout="wide")
+inject_dark_theme()
 
-if data_file is None:
-    st.info("Upload CSV dulu lewat sidebar.")
+# Load resources once (kamus & lexicon from repo)
+if st.session_state.kamus is None or st.session_state.lex_pos is None or st.session_state.lex_neg is None:
+    kamus, lex_pos, lex_neg, errs = safe_load_resources()
+    st.session_state.kamus = kamus
+    st.session_state.lex_pos = lex_pos
+    st.session_state.lex_neg = lex_neg
+    st.session_state.res_errors = errs
+
+
+# =========================================================
+# Sidebar Navigation
+# =========================================================
+st.sidebar.markdown("## 📌 Navigasi")
+menu = st.sidebar.radio(
+    "Pilih Menu",
+    ["Home", "Input", "Preprocessing", "Klasifikasi SVM"],
+    index=["Home", "Input", "Preprocessing", "Klasifikasi SVM"].index(st.session_state.menu)
+)
+st.session_state.menu = menu
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 📦 Resource (Repo)")
+if st.session_state.res_errors:
+    st.sidebar.error("Resource gagal dimuat.")
+    for e in st.session_state.res_errors:
+        st.sidebar.write(f"- {e}")
 else:
-    df = pd.read_csv(data_file, sep=",", skipinitialspace=True, na_values="?")
-    st.session_state.raw_df = df.copy()
+    st.sidebar.success("Kamus & Lexicon siap.")
+    st.sidebar.write(f"- Kamus: {len(st.session_state.kamus)} entri")
+    st.sidebar.write(f"- Lexicon +: {len(st.session_state.lex_pos)} entri")
+    st.sidebar.write(f"- Lexicon -: {len(st.session_state.lex_neg)} entri")
 
-    show_df(df, "Preview Dataset (Raw)")
+st.sidebar.markdown("---")
+st.sidebar.markdown("### ⚙️ Parameter SVM")
+test_size = st.sidebar.slider("Test size", 0.1, 0.4, 0.2, 0.05)
+random_state = st.sidebar.number_input("Random state", min_value=0, value=42, step=1)
+C = st.sidebar.number_input("SVM C", min_value=0.01, value=1.0, step=0.1)
+kernel = st.sidebar.selectbox("Kernel", ["linear", "rbf", "poly", "sigmoid"], index=0)
 
-    text_column = st.selectbox(
-        "Pilih kolom yang berisi teks ulasan",
-        options=df.columns.tolist(),
-        index=0 if st.session_state.chosen_text_column is None else df.columns.tolist().index(st.session_state.chosen_text_column)
-        if st.session_state.chosen_text_column in df.columns else 0
+
+# =========================================================
+# HOME
+# =========================================================
+if st.session_state.menu == "Home":
+    st.markdown(
+        """
+        <div class="card">
+            <span class="badge">Sistem Analisis Sentimen</span>
+            <h2 style="margin-top:10px;">TF-IDF + SVM untuk Ulasan Pengguna</h2>
+            <p class="muted">
+                Sistem ini melakukan analisis sentimen pada ulasan pengguna menggunakan tahapan:
+                <b>Preprocessing</b> (case folding, normalisasi kamus, cleaning, stopword, stemming, filter lexicon),
+                kemudian <b>Labeling Lexicon</b> (positif/negatif/netral).
+                Setelah itu data diproses dengan <b>TF-IDF</b> dan diklasifikasikan menggunakan <b>SVM</b>.
+            </p>
+            <p class="muted">
+                Kamu bisa menjalankan proses secara bertahap dan melihat hasil di setiap tahap.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
     )
-
-    if st.button("Gunakan kolom ini sebagai teks ulasan"):
-        st.session_state.chosen_text_column = text_column
-        st.session_state.df_step = pd.DataFrame()
-        st.session_state.df_step["content"] = df[text_column].astype(str)
-        st.success(f"Kolom '{text_column}' dipakai sebagai teks ulasan (disimpan sebagai 'content' internal).")
-        show_df(st.session_state.df_step, "Preview Data (Awal)")
-
-# =========================
-# Resource (Kamus & Lexicon)
-# =========================
-st.subheader("Resource (Kamus & Lexicon)")
-
-colr1, colr2, colr3 = st.columns([1, 1, 1])
-
-with colr1:
-    if st.button("Load Kamus Excel", disabled=(kamus_file is None)):
-        try:
-            st.session_state.kamus_dict = load_kamus_from_excel(kamus_file)
-            st.success(f"Kamus loaded: {len(st.session_state.kamus_dict)} entri.")
-        except Exception as e:
-            st.error(f"Gagal load kamus: {e}")
-
-with colr2:
-    if st.button("Load Lexicon Positive", disabled=(lex_pos_file is None)):
-        st.session_state.lex_pos = load_lexicon_csv(lex_pos_file)
-        st.success(f"Lexicon positive loaded: {len(st.session_state.lex_pos)} entri.")
-
-with colr3:
-    if st.button("Load Lexicon Negative", disabled=(lex_neg_file is None)):
-        st.session_state.lex_neg = load_lexicon_csv(lex_neg_file)
-        st.success(f"Lexicon negative loaded: {len(st.session_state.lex_neg)} entri.")
+    st.write("")
+    colA, colB, colC = st.columns([1, 1, 2])
+    with colA:
+        if st.button("🚀 Mulai"):
+            st.session_state.menu = "Input"
+            st.rerun()
+    with colB:
+        if st.button("🧹 Reset Semua"):
+            for k in list(st.session_state.keys()):
+                if k not in ["menu", "kamus", "lex_pos", "lex_neg", "res_errors"]:
+                    st.session_state[k] = None
+            st.session_state.menu = "Home"
+            st.rerun()
 
 
-# =========================
-# STEP 1: Preprocessing bertahap + Filter Lexicon
-# =========================
-st.header("STEP 1 — Preprocessing (bertahap) + Filter Lexicon (hapus typo/OOV)")
+# =========================================================
+# INPUT
+# =========================================================
+elif st.session_state.menu == "Input":
+    st.markdown(
+        """
+        <div class="card">
+            <h2>📥 Input Data Ulasan</h2>
+            <p class="muted">
+                Upload file CSV ulasan. Nama kolom bebas — setelah upload kamu bisa memilih kolom yang berisi teks ulasan.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    st.write("")
 
-if st.session_state.df_step is None:
-    st.info("Klik tombol 'Gunakan kolom ini sebagai teks ulasan' pada STEP 0 dulu.")
-else:
-    c1, c2, c3, c4, c5, c6 = st.columns(6)
+    uploaded = st.file_uploader("Upload CSV", type=["csv"])
+    if uploaded is not None:
+        df = pd.read_csv(uploaded, sep=",", skipinitialspace=True, na_values="?")
+        st.session_state.raw_df = df.copy()
 
-    with c1:
-        if st.button("1) Case Folding"):
-            st.session_state.df_step["content"] = st.session_state.df_step["content"].apply(CaseFolding)
-            st.success("Case folding selesai.")
+        show_preview(df, "Preview Dataset (Raw)", n=20)
 
-    with c2:
-        if st.button("2) Normalisasi Kamus", disabled=(st.session_state.kamus_dict is None)):
-            st.session_state.df_step["content"] = st.session_state.df_step["content"].apply(
-                lambda x: normalisasi_dengan_kamus(x, st.session_state.kamus_dict)
-            )
-            st.success("Normalisasi kamus selesai.")
+        st.markdown("#### Pilih Kolom Teks Ulasan")
+        chosen_col = st.selectbox("Kolom teks", options=df.columns.tolist())
+        st.session_state.chosen_col = chosen_col
 
-    with c3:
-        if st.button("3) Data Cleaning"):
-            st.session_state.df_step["content"] = st.session_state.df_step["content"].apply(datacleaning)
-            st.success("Data cleaning selesai.")
+        col1, col2 = st.columns([1, 2])
+        with col1:
+            if st.button("✅ Gunakan Kolom Ini"):
+                work = pd.DataFrame()
+                work["content"] = df[chosen_col].astype(str)
+                work = drop_empty_rows(work)
 
-    with c4:
-        if st.button("4) Stopword Removal"):
-            st.session_state.df_step["content"] = st.session_state.df_step["content"].apply(remove_stopwords)
-            st.success("Stopword removal selesai.")
-
-    with c5:
-        if st.button("5) Stemming (Sastrawi)"):
-            st.session_state.df_step["content"] = st.session_state.df_step["content"].apply(stem_text)
-            st.success("Stemming selesai.")
-
-    with c6:
-        if st.button("6) Filter Lexicon", disabled=(st.session_state.lex_pos is None or st.session_state.lex_neg is None)):
-            dfp = st.session_state.df_step.copy()
-            dfp["content_list"] = dfp["content"].astype(str).str.split()
-            dfp["content_list"] = dfp["content_list"].apply(
-                lambda toks: filter_tokens_by_lexicon(toks, st.session_state.lex_pos, st.session_state.lex_neg)
-            )
-            dfp["content"] = dfp["content_list"].apply(lambda toks: " ".join(toks))
-            st.session_state.df_step = dfp
-            st.success("Filter lexicon selesai. Kata di luar lexicon dihapus (typo/OOV dibuang).")
-
-    col_clean_a, col_clean_b = st.columns([1, 1])
-    with col_clean_a:
-        if st.button("Bersihkan baris kosong/NaN setelah preprocessing"):
-            dfp = st.session_state.df_step.copy()
-            dfp["content"] = dfp["content"].fillna("").astype(str)
-            dfp = dfp[dfp["content"].str.strip() != ""]
-            dfp = dfp.dropna(subset=["content"]).reset_index(drop=True)
-            st.session_state.df_step = dfp
-            st.success("Baris kosong/NaN dihapus.")
-
-    with col_clean_b:
-        if st.button("Reset ke data awal (STEP 0)"):
-            if st.session_state.raw_df is not None and st.session_state.chosen_text_column in st.session_state.raw_df.columns:
-                st.session_state.df_step = pd.DataFrame()
-                st.session_state.df_step["content"] = st.session_state.raw_df[st.session_state.chosen_text_column].astype(str)
-                # reset model state juga
+                # reset hasil-hasil sebelumnya
+                st.session_state.df_work = work
+                st.session_state.pp_casefold = None
+                st.session_state.pp_normal = None
+                st.session_state.pp_clean = None
+                st.session_state.pp_stop = None
+                st.session_state.pp_stem = None
+                st.session_state.pp_filterlex = None
+                st.session_state.pp_labeled = None
                 st.session_state.tfidf = None
+                st.session_state.tfidf_df = None
+                st.session_state.X_tfidf = None
                 st.session_state.svm = None
                 st.session_state.report = None
                 st.session_state.cm = None
-                st.success("Data direset ke kondisi awal.")
-            else:
-                st.warning("Data awal belum siap. Pastikan STEP 0 sudah dilakukan.")
 
-    show_df(st.session_state.df_step, "Preview Setelah Preprocessing")
+                st.success(f"Kolom '{chosen_col}' dipakai sebagai ulasan. Data siap untuk preprocessing.")
+        with col2:
+            st.info("Lanjut ke menu **Preprocessing** lewat sidebar.")
 
-
-# =========================
-# STEP 2: Lexicon labeling
-# =========================
-st.header("STEP 2 — Lexicon-based Sentiment Labeling")
-
-if st.session_state.df_step is None:
-    st.info("Load dataset dulu.")
-elif st.session_state.lex_pos is None or st.session_state.lex_neg is None:
-    st.info("Load lexicon positive & negative dulu.")
-else:
-    if st.button("Jalankan Lexicon Labeling"):
-        df = st.session_state.df_step.copy()
-
-        # pakai content_list yang sudah ada dari filter lexicon jika ada
-        if "content_list" not in df.columns:
-            df["content_list"] = df["content"].astype(str).str.split()
-
-        results = df["content_list"].apply(
-            lambda toks: sentiment_analysis_lexicon_indonesia(toks, st.session_state.lex_pos, st.session_state.lex_neg)
-        )
-        results = list(zip(*results))
-        df["score"] = results[0]
-        df["Sentimen"] = results[1]
-
-        st.session_state.df_step = df
-        st.success("Lexicon labeling selesai.")
-
-    if st.session_state.df_step is not None and "Sentimen" in st.session_state.df_step.columns:
-        show_df(st.session_state.df_step, "Preview Setelah Labeling")
-        st.write("Distribusi Sentimen (Lexicon):")
-        st.write(st.session_state.df_step["Sentimen"].value_counts())
-
-        if st.button("Filter netral (score == 0)"):
-            df = st.session_state.df_step.copy()
-            df = df[df["score"] != 0].reset_index(drop=True)
-            st.session_state.df_step = df
-            st.success("Netral dihapus (score != 0).")
-            st.write("Distribusi Sentimen (setelah filter):")
-            st.write(st.session_state.df_step["Sentimen"].value_counts())
+    if st.session_state.df_work is not None:
+        st.write("")
+        show_preview(st.session_state.df_work, "Data yang Akan Diproses", n=20)
 
 
-# =========================
-# STEP 3: TF-IDF
-# =========================
-st.header("STEP 3 — TF-IDF Feature Extraction")
+# =========================================================
+# PREPROCESSING (awam-friendly, step-by-step, preview tiap tahap + download excel)
+# =========================================================
+elif st.session_state.menu == "Preprocessing":
+    st.markdown(
+        """
+        <div class="card">
+            <h2>🧽 Preprocessing</h2>
+            <p class="muted">
+                Jalankan tahapan preprocessing secara bertahap. Setiap tahap akan menampilkan hasilnya agar mudah dipahami.
+                Kamu juga bisa menjalankan semuanya sekaligus.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    st.write("")
 
-if st.session_state.df_step is None:
-    st.info("Load dataset dulu.")
-elif "Sentimen" not in st.session_state.df_step.columns:
-    st.info("Lakukan lexicon labeling dulu (STEP 2).")
-else:
-    if st.button("Fit TF-IDF pada data"):
-        df = st.session_state.df_step.copy()
+    if st.session_state.df_work is None:
+        st.warning("Belum ada data. Silakan upload CSV pada menu **Input**.")
+    elif st.session_state.res_errors:
+        st.error("Resource (kamus/lexicon) gagal dimuat. Pastikan file ada di repo dan namanya sesuai.")
+    else:
+        base_df = st.session_state.df_work.copy()
 
-        if "content_list" not in df.columns:
-            df["content_list"] = df["content"].astype(str).str.split()
+        # Action buttons
+        col_run1, col_run2, col_run3 = st.columns([1.2, 1.2, 2])
+        with col_run1:
+            run_all = st.button("▶️ Jalankan Semua Preprocessing")
+        with col_run2:
+            reset_pp = st.button("🔄 Reset Preprocessing")
+        with col_run3:
+            st.caption("Tips: Jalankan dari atas ke bawah agar hasilnya konsisten.")
 
-        X_text = df["content_list"].apply(lambda x: " ".join(x) if isinstance(x, list) else str(x))
+        if reset_pp:
+            st.session_state.pp_casefold = None
+            st.session_state.pp_normal = None
+            st.session_state.pp_clean = None
+            st.session_state.pp_stop = None
+            st.session_state.pp_stem = None
+            st.session_state.pp_filterlex = None
+            st.session_state.pp_labeled = None
+            st.success("Preprocessing direset.")
+            st.rerun()
 
-        tfidf = TfidfVectorizer()
-        tfidf.fit(X_text)
+        # Define pipeline steps
+        def step_casefold(df):
+            out = df.copy()
+            out["content"] = out["content"].apply(CaseFolding)
+            return drop_empty_rows(out)
 
-        st.session_state.tfidf = tfidf
-        st.success(f"TF-IDF fitted. Jumlah fitur: {len(tfidf.get_feature_names_out())}")
+        def step_normalisasi(df):
+            out = df.copy()
+            out["content"] = out["content"].apply(lambda x: normalisasi_dengan_kamus(x, st.session_state.kamus))
+            return drop_empty_rows(out)
 
-    if st.session_state.tfidf is not None:
-        st.write("Contoh feature names (20 pertama):")
-        st.write(st.session_state.tfidf.get_feature_names_out()[:20])
+        def step_clean(df):
+            out = df.copy()
+            out["content"] = out["content"].apply(datacleaning)
+            return drop_empty_rows(out)
+
+        def step_stopword(df):
+            out = df.copy()
+            out["content"] = out["content"].apply(remove_stopwords)
+            return drop_empty_rows(out)
+
+        def step_stemming(df):
+            out = df.copy()
+            out["content"] = out["content"].apply(stem_text)
+            return drop_empty_rows(out)
+
+        def step_filterlex(df):
+            out = df.copy()
+            out["content_list"] = out["content"].astype(str).str.split()
+            out["content_list"] = out["content_list"].apply(
+                lambda toks: filter_tokens_by_lexicon(toks, st.session_state.lex_pos, st.session_state.lex_neg)
+            )
+            out["content"] = out["content_list"].apply(lambda toks: " ".join(toks))
+            out = drop_empty_rows(out)
+            return out
+
+        def step_labeling(df):
+            out = df.copy()
+            if "content_list" not in out.columns:
+                out["content_list"] = out["content"].astype(str).str.split()
+            res = out["content_list"].apply(lambda toks: sentiment_analysis_lexicon_indonesia(
+                toks, st.session_state.lex_pos, st.session_state.lex_neg
+            ))
+            res = list(zip(*res))
+            out["score"] = res[0]
+            out["Sentimen"] = res[1]
+            return out
+
+        # Run all
+        if run_all:
+            st.session_state.pp_casefold = step_casefold(base_df)
+            st.session_state.pp_normal = step_normalisasi(st.session_state.pp_casefold)
+            st.session_state.pp_clean = step_clean(st.session_state.pp_normal)
+            st.session_state.pp_stop = step_stopword(st.session_state.pp_clean)
+            st.session_state.pp_stem = step_stemming(st.session_state.pp_stop)
+            st.session_state.pp_filterlex = step_filterlex(st.session_state.pp_stem)
+            st.session_state.pp_labeled = step_labeling(st.session_state.pp_filterlex)
+            st.success("Semua tahap preprocessing selesai. Lihat hasil di bawah.")
+
+        # UI step-by-step (simple for awam) using expanders
+        st.markdown("### Tahapan Preprocessing")
+
+        # STEP 1
+        with st.expander("1) Case Folding (huruf kecil semua)", expanded=True):
+            if st.button("Jalankan Case Folding"):
+                st.session_state.pp_casefold = step_casefold(base_df)
+            if st.session_state.pp_casefold is not None:
+                show_preview(st.session_state.pp_casefold, "Hasil Case Folding", n=20)
+
+        # STEP 2
+        with st.expander("2) Normalisasi Kamus (kata tidak baku → baku)", expanded=False):
+            if st.button("Jalankan Normalisasi Kamus"):
+                prev = st.session_state.pp_casefold if st.session_state.pp_casefold is not None else base_df
+                st.session_state.pp_normal = step_normalisasi(prev)
+            if st.session_state.pp_normal is not None:
+                show_preview(st.session_state.pp_normal, "Hasil Normalisasi Kamus", n=20)
+
+        # STEP 3
+        with st.expander("3) Data Cleaning (hapus simbol/angka/link/emoji)", expanded=False):
+            if st.button("Jalankan Data Cleaning"):
+                prev = st.session_state.pp_normal if st.session_state.pp_normal is not None else (
+                    st.session_state.pp_casefold if st.session_state.pp_casefold is not None else base_df
+                )
+                st.session_state.pp_clean = step_clean(prev)
+            if st.session_state.pp_clean is not None:
+                show_preview(st.session_state.pp_clean, "Hasil Data Cleaning", n=20)
+
+        # STEP 4
+        with st.expander("4) Stopword Removal (hapus kata umum)", expanded=False):
+            if st.button("Jalankan Stopword Removal"):
+                prev = st.session_state.pp_clean if st.session_state.pp_clean is not None else (
+                    st.session_state.pp_normal if st.session_state.pp_normal is not None else base_df
+                )
+                st.session_state.pp_stop = step_stopword(prev)
+            if st.session_state.pp_stop is not None:
+                show_preview(st.session_state.pp_stop, "Hasil Stopword Removal", n=20)
+
+        # STEP 5
+        with st.expander("5) Stemming (ubah kata ke bentuk dasar)", expanded=False):
+            if st.button("Jalankan Stemming"):
+                prev = st.session_state.pp_stop if st.session_state.pp_stop is not None else (
+                    st.session_state.pp_clean if st.session_state.pp_clean is not None else base_df
+                )
+                st.session_state.pp_stem = step_stemming(prev)
+            if st.session_state.pp_stem is not None:
+                show_preview(st.session_state.pp_stem, "Hasil Stemming", n=20)
+
+        # STEP 6
+        with st.expander("6) Filter Lexicon (hapus kata typo/OOV yang tidak ada di lexicon)", expanded=False):
+            if st.button("Jalankan Filter Lexicon"):
+                prev = st.session_state.pp_stem if st.session_state.pp_stem is not None else (
+                    st.session_state.pp_stop if st.session_state.pp_stop is not None else base_df
+                )
+                st.session_state.pp_filterlex = step_filterlex(prev)
+            if st.session_state.pp_filterlex is not None:
+                show_preview(st.session_state.pp_filterlex, "Hasil Filter Lexicon", n=20)
+
+        # STEP 7 (Labeling)
+        with st.expander("7) Labeling Lexicon (positif/negatif/netral + score)", expanded=False):
+            if st.button("Jalankan Labeling Lexicon"):
+                prev = st.session_state.pp_filterlex if st.session_state.pp_filterlex is not None else (
+                    st.session_state.pp_stem if st.session_state.pp_stem is not None else base_df
+                )
+                st.session_state.pp_labeled = step_labeling(prev)
+
+            if st.session_state.pp_labeled is not None:
+                df_lab = st.session_state.pp_labeled
+                show_preview(df_lab, "Hasil Labeling", n=20)
+                st.write("Distribusi Sentimen:")
+                st.write(df_lab["Sentimen"].value_counts())
+
+                col_f1, col_f2 = st.columns([1, 2])
+                with col_f1:
+                    if st.button("Filter Netral (score == 0)"):
+                        df2 = df_lab[df_lab["score"] != 0].reset_index(drop=True)
+                        st.session_state.pp_labeled = df2
+                        st.success("Netral dihapus.")
+                with col_f2:
+                    st.caption("SVM nanti memakai label negatif/positif (netral biasanya dibuang).")
+
+        # Download at end of preprocessing
+        st.markdown("---")
+        st.markdown("### ⬇️ Download Hasil Preprocessing (Excel)")
+        if st.session_state.pp_labeled is None:
+            st.info("Jalankan minimal sampai tahap Labeling dulu agar hasil lengkap.")
+        else:
+            excel_bytes = to_excel_bytes(st.session_state.pp_labeled, sheet_name="preprocessing")
+            st.download_button(
+                "Download Excel Preprocessing",
+                data=excel_bytes,
+                file_name="hasil_preprocessing.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
 
 
-# =========================
-# STEP 4: Train/Test Split + SVM
-# =========================
-st.header("STEP 4 — Train/Test Split & Train SVM")
+# =========================================================
+# KLASIFIKASI SVM (TF-IDF -> tampil lengkap -> Split -> SVM -> report + CM -> download excel)
+# =========================================================
+elif st.session_state.menu == "Klasifikasi SVM":
+    st.markdown(
+        """
+        <div class="card">
+            <h2>🤖 Klasifikasi SVM</h2>
+            <p class="muted">
+                Jalankan tahapan model secara bertahap: <b>TF-IDF</b> → <b>Split Data</b> → <b>Klasifikasi SVM</b> →
+                <b>Classification Report</b> dan <b>Confusion Matrix</b>.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    st.write("")
 
-if st.session_state.tfidf is None:
-    st.info("Fit TF-IDF dulu (STEP 3).")
-else:
-    if st.button("Split data & Train SVM"):
-        df = st.session_state.df_step.copy()
+    if st.session_state.pp_labeled is None:
+        st.warning("Data belum melalui preprocessing + labeling. Silakan ke menu **Preprocessing** dan jalankan sampai Labeling.")
+    else:
+        df = st.session_state.pp_labeled.copy()
 
-        # pastikan hanya negatif/positif
+        # Pastikan hanya negatif/positif (umumnya netral dibuang)
         if "Sentimen" not in df.columns:
-            st.error("Kolom 'Sentimen' belum ada. Jalankan STEP 2 dulu.")
+            st.error("Kolom 'Sentimen' belum ada. Jalankan labeling di menu Preprocessing.")
         else:
             df = df[df["Sentimen"].isin(["negatif", "positif"])].reset_index(drop=True)
             if df.empty:
-                st.error("Tidak ada data negatif/positif untuk training. Pastikan sudah filter netral (opsional) dan ada data.")
+                st.error("Data negatif/positif kosong. Pastikan ada data setelah filter netral.")
             else:
                 if "content_list" not in df.columns:
                     df["content_list"] = df["content"].astype(str).str.split()
 
-                X_text = df["content_list"].apply(lambda x: " ".join(x) if isinstance(x, list) else str(x))
-                y = df["Sentimen"]
+                # BUTTONS
+                b1, b2, b3 = st.columns([1.1, 1.1, 2])
+                with b1:
+                    run_tfidf = st.button("1) Jalankan TF-IDF")
+                with b2:
+                    run_split = st.button("2) Split Data")
+                with b3:
+                    run_svm = st.button("3) Klasifikasi SVM")
 
-                X_tfidf = st.session_state.tfidf.transform(X_text).toarray()
+                # 1) TF-IDF
+                if run_tfidf or (st.session_state.tfidf is not None and st.session_state.tfidf_df is None):
+                    X_text = df["content_list"].apply(lambda x: " ".join(x) if isinstance(x, list) else str(x))
+                    tfidf = TfidfVectorizer()
+                    X_tfidf = tfidf.fit_transform(X_text).toarray()
 
-                X_train, X_test, y_train, y_test = train_test_split(
-                    X_tfidf, y, test_size=float(test_size), random_state=int(random_state)
-                )
+                    tfidf_df = pd.DataFrame(X_tfidf, columns=tfidf.get_feature_names_out())
+                    st.session_state.tfidf = tfidf
+                    st.session_state.X_tfidf = X_tfidf
+                    st.session_state.tfidf_df = tfidf_df
 
-                svm_model = SVC(kernel=kernel, C=float(C))
-                svm_model.fit(X_train, y_train)
+                    st.success(f"TF-IDF selesai. Total fitur: {tfidf_df.shape[1]}")
 
-                y_pred = svm_model.predict(X_test)
-                acc = accuracy_score(y_test, y_pred)
+                if st.session_state.tfidf_df is not None:
+                    st.markdown("### Hasil TF-IDF (Lengkap)")
+                    st.caption("Catatan: Jika dataset sangat besar, menampilkan semua fitur bisa berat. Namun tabel di bawah adalah hasil lengkap (scroll).")
+                    st.dataframe(st.session_state.tfidf_df, use_container_width=True)
 
-                st.session_state.svm = svm_model
-                st.session_state.X_train, st.session_state.X_test = X_train, X_test
-                st.session_state.y_train, st.session_state.y_test = y_train, y_test
-                st.session_state.y_pred = y_pred
+                    tfidf_excel = to_excel_bytes(st.session_state.tfidf_df, sheet_name="tfidf")
+                    st.download_button(
+                        "Download TF-IDF (Excel)",
+                        data=tfidf_excel,
+                        file_name="hasil_tfidf.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
 
-                st.success(f"SVM trained. Accuracy: {acc:.4f}")
+                # 2) Split
+                if run_split:
+                    if st.session_state.X_tfidf is None:
+                        st.error("Jalankan TF-IDF dulu.")
+                    else:
+                        y = df["Sentimen"]
+                        X_train, X_test, y_train, y_test = train_test_split(
+                            st.session_state.X_tfidf, y,
+                            test_size=float(test_size),
+                            random_state=int(random_state)
+                        )
+                        st.session_state.X_train, st.session_state.X_test = X_train, X_test
+                        st.session_state.y_train, st.session_state.y_test = y_train, y_test
+                        st.success(f"Split data selesai. Train: {len(y_train)} | Test: {len(y_test)}")
 
-                st.session_state.report = classification_report(y_test, y_pred, zero_division=0)
-                st.session_state.cm = confusion_matrix(y_test, y_pred, labels=["negatif", "positif"])
+                # 3) SVM
+                if run_svm:
+                    if st.session_state.X_train is None or st.session_state.X_test is None:
+                        st.error("Jalankan Split Data dulu.")
+                    else:
+                        svm = SVC(kernel=kernel, C=float(C))
+                        svm.fit(st.session_state.X_train, st.session_state.y_train)
+                        y_pred = svm.predict(st.session_state.X_test)
 
-    if st.session_state.report is not None:
-        st.subheader("Classification Report")
-        st.code(st.session_state.report)
+                        st.session_state.svm = svm
+                        st.session_state.y_pred = y_pred
 
-    if st.session_state.cm is not None:
-        st.subheader("Confusion Matrix")
-        plot_confusion(st.session_state.cm, labels=("negatif", "positif"), title="Confusion Matrix SVM")
+                        acc = accuracy_score(st.session_state.y_test, y_pred)
+                        st.success(f"Klasifikasi SVM selesai. Accuracy: {acc:.4f}")
 
+                        st.session_state.report = classification_report(
+                            st.session_state.y_test, y_pred, zero_division=0
+                        )
+                        st.session_state.cm = confusion_matrix(
+                            st.session_state.y_test, y_pred, labels=["negatif", "positif"]
+                        )
 
-# =========================
-# STEP 5: Prediksi pada dataset ini + Export
-# =========================
-st.header("STEP 5 — Prediksi (opsional) & Export Hasil")
+                # Results
+                if st.session_state.report is not None:
+                    st.markdown("### Classification Report")
+                    st.code(st.session_state.report)
 
-if st.session_state.df_step is None:
-    st.info("Belum ada data.")
-else:
-    if st.button("Tambahkan kolom prediksi SVM", disabled=(st.session_state.svm is None or st.session_state.tfidf is None)):
-        df = st.session_state.df_step.copy()
+                if st.session_state.cm is not None:
+                    st.markdown("### Confusion Matrix")
+                    plot_confusion(st.session_state.cm, labels=("negatif", "positif"), title="Confusion Matrix SVM")
 
-        if "content_list" not in df.columns:
-            df["content_list"] = df["content"].astype(str).str.split()
+                # Download final (df + predictions on ALL df, optional)
+                st.markdown("---")
+                st.markdown("### ⬇️ Download Hasil Klasifikasi (Excel)")
 
-        X_text = df["content_list"].apply(lambda x: " ".join(x) if isinstance(x, list) else str(x))
-        X_tfidf = st.session_state.tfidf.transform(X_text).toarray()
+                if st.session_state.svm is None or st.session_state.tfidf is None:
+                    st.info("Jalankan TF-IDF + Split Data + Klasifikasi SVM dulu.")
+                else:
+                    # Predict for all processed rows
+                    X_all = st.session_state.tfidf.transform(
+                        df["content_list"].apply(lambda x: " ".join(x) if isinstance(x, list) else str(x))
+                    ).toarray()
+                    df_out = df.copy()
+                    df_out["Prediksi_SVM"] = st.session_state.svm.predict(X_all)
 
-        df["Prediksi_SVM"] = st.session_state.svm.predict(X_tfidf)
-        st.session_state.df_step = df
-        st.success("Prediksi SVM ditambahkan ke dataframe.")
-
-    show_df(st.session_state.df_step, "Preview Data Final")
-
-    csv_bytes = st.session_state.df_step.to_csv(index=False).encode("utf-8-sig")
-    st.download_button(
-        "Download hasil sebagai CSV",
-        data=csv_bytes,
-        file_name="hasil_sentiment_streamlit.csv",
-        mime="text/csv"
-    )
-
-st.divider()
-st.caption("Deploy: pastikan repo berisi app.py + requirements.txt. Streamlit Cloud akan auto-install dependency dari requirements.txt.")
-
+                    excel_bytes = to_excel_bytes(df_out, sheet_name="svm_results")
+                    st.download_button(
+                        "Download Excel Hasil Klasifikasi",
+                        data=excel_bytes,
+                        file_name="hasil_klasifikasi_svm.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
