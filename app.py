@@ -353,6 +353,7 @@ def nav_button(label, icon, target_menu):
 
 st.sidebar.markdown("## Navigasi")
 nav_button("Home", "🏠", "Home")
+nav_button("Scraping", "🕷️", "Scraping")
 nav_button("Input", "📥", "Input")
 nav_button("Proses", "🧽", "Proses")
 nav_button("Klasifikasi SVM", "🤖", "Klasifikasi SVM")
@@ -997,6 +998,7 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
 
 
