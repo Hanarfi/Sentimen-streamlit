@@ -8,6 +8,8 @@ import csv
 import pickle
 import time
 
+from google_play_scraper import reviews, Sort
+
 import nltk
 from nltk.corpus import stopwords
 
@@ -294,6 +296,10 @@ def init_state():
         "lex_neg": None,
         "res_errors": [],
 
+        # scraping artifacts
+        "scraped_df": None,
+        "scrape_meta": None,
+        
         # preprocessing outputs
         "pp_casefold": None,
         "pp_normal": None,
@@ -411,6 +417,140 @@ if st.session_state.menu == "Home":
     if st.button("🚀 Mulai"):
         st.session_state.menu = "Input"
         st.rerun()
+
+
+# =========================================================
+# SCRAPING (Google Play Reviews) - OPSIONAL + bisa langsung jadi dataset
+# =========================================================
+elif st.session_state.menu == "Scraping":
+    st.title("Scraping Ulasan Google Play (Opsional)")
+    st.write(
+        "Menu ini **opsional**. Gunakan jika kamu belum punya dataset CSV. "
+        "Jika sudah punya dataset, langsung ke menu **Input** untuk upload."
+    )
+
+    st.markdown("### Panduan Penggunaan")
+    st.markdown(
+        """
+        1. Masukkan **Package Name** aplikasi (contoh: `co.id.bankbsi.superapp`).  
+        2. Pilih **Sort** (Newest / Most Relevant).  
+        3. Tentukan jumlah review (**Count**).  
+        4. Klik **Ambil Reviews** → hasil tampil dan bisa:
+           - **diunduh sebagai CSV**, atau
+           - **langsung dipakai sebagai dataset** (tanpa upload ulang).  
+        
+        **Cara mencari package name:** buka Google Play → URL biasanya mengandung `id=<package_name>`.
+        """
+    )
+
+    st.markdown("---")
+    st.subheader("Parameter Scraping")
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        package_name = st.text_input("Package Name", value="co.id.bankbsi.superapp")
+    with col2:
+        sort_choice = st.selectbox("Sort", ["NEWEST", "MOST_RELEVANT"], index=0)
+    with col3:
+        count = st.number_input("Count (jumlah review)", min_value=10, max_value=500, value=50, step=10)
+
+    lang = st.text_input("Language (lang)", value="id")
+    country = st.text_input("Country (country)", value="id")
+
+    st.markdown("---")
+    run_scrape = st.button("🕷️ Ambil Reviews")
+
+    if run_scrape:
+        if not package_name.strip():
+            st.error("Package Name tidak boleh kosong.")
+        else:
+            try:
+                with st.spinner("Mengambil review dari Google Play..."):
+                    sort_val = Sort.NEWEST if sort_choice == "NEWEST" else Sort.MOST_RELEVANT
+
+                    rv, _ = reviews(
+                        package_name,
+                        lang=lang,
+                        country=country,
+                        sort=sort_val,
+                        count=int(count)
+                    )
+
+                df_reviews = pd.DataFrame(rv)
+
+                if df_reviews.empty:
+                    st.warning("Tidak ada review yang berhasil diambil. Cek package name atau coba sort lain.")
+                    st.session_state.scraped_df = None
+                    st.session_state.scrape_meta = None
+                else:
+                    st.success(f"Berhasil mengambil {len(df_reviews)} review.")
+                    st.session_state.scraped_df = df_reviews
+
+                    st.session_state.scrape_meta = {
+                        "package_name": package_name,
+                        "count": int(count),
+                        "sort": sort_choice,
+                        "lang": lang,
+                        "country": country,
+                        "fetched_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+                    }
+
+            except Exception as e:
+                st.error(f"Error fetching reviews: {e}")
+                st.session_state.scraped_df = None
+                st.session_state.scrape_meta = None
+
+    # ===== tampilkan hasil scraping kalau ada =====
+    if st.session_state.scraped_df is not None:
+        df_reviews = st.session_state.scraped_df.copy()
+
+        st.markdown("---")
+        st.subheader("Preview Hasil Scraping")
+        st.dataframe(df_reviews.head(30), use_container_width=True)
+
+        # pilih kolom teks yang akan dijadikan "content"
+        # google_play_scraper biasanya punya kolom 'content'
+        text_cols = df_reviews.columns.tolist()
+        default_idx = text_cols.index("content") if "content" in text_cols else 0
+
+        chosen_text_col = st.selectbox(
+            "Pilih kolom teks ulasan untuk dipakai sebagai dataset",
+            options=text_cols,
+            index=default_idx
+        )
+
+        # tombol: pakai langsung sebagai dataset
+        if st.button("✅ Gunakan sebagai dataset → lanjut Proses"):
+            work = pd.DataFrame({"content": df_reviews[chosen_text_col].astype(str)})
+            work = drop_empty_rows(work)
+
+            # set dataset kerja seperti menu Input
+            st.session_state.raw_df = df_reviews.copy()
+            st.session_state.df_work = work
+            st.session_state.chosen_col = chosen_text_col
+
+            # reset semua hasil preprocessing + model (biar konsisten)
+            for k in ["pp_casefold","pp_normal","pp_clean","pp_stop","pp_stem","pp_filterlex","pp_labeled",
+                      "tfidf","tfidf_df","X_tfidf","X_train","X_test","y_train","y_test",
+                      "svm","y_pred","report","cm"]:
+                st.session_state[k] = None
+
+            st.success("Dataset dari scraping sudah dipakai. Mengalihkan ke menu Proses...")
+            st.session_state.menu = "Proses"
+            st.rerun()
+
+        # opsi download tetap ada (opsional)
+        st.markdown("### Download Dataset (Opsional)")
+        meta = st.session_state.scrape_meta or {}
+        fname = f"{meta.get('package_name','reviews')}_reviews_{meta.get('count',len(df_reviews))}.csv"
+        csv_bytes = df_reviews.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
+        st.download_button(
+            "⬇️ Download CSV hasil scraping",
+            data=csv_bytes,
+            file_name=fname,
+            mime="text/csv"
+        )
+
 
 
 # =========================================================
@@ -857,6 +997,7 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
 
 
