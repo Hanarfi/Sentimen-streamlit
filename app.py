@@ -397,22 +397,24 @@ if st.sidebar.button("🧹 Reset"):
 # HOME
 # =========================================================
 if st.session_state.menu == "Home":
-    st.title("Sistem Analisis Sentimen Ulasan Pengguna")
+    st.title("Sistem Analisis Sentimen Ulasan Pengguna pada Aplikasi-aplikasi Google Play")
     st.write(
         "Metode yang digunakan: **Preprocessing + Labeling Lexicon → TF-IDF → SVM**. "
         "Aplikasi ini dirancang agar proses dapat dijalankan bertahap dan hasil tiap tahap dapat diamati."
     )
 
     st.markdown("### Alur Penggunaan")
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4, c5 = st.columns(4)
     with c1:
-        st.markdown("<div class='kpi'><b>1) 📥 Input</b><div class='hint'>Unggah CSV dan pilih kolom teks.</div></div>", unsafe_allow_html=True)
+        st.markdown("<div class='kpi'><b>1) 🕷️ Scraping</b><div class='hint'>Scraping dataset ulasan.</div></div>", unsafe_allow_html=True)
     with c2:
-        st.markdown("<div class='kpi'><b>2) 🧽 Proses</b><div class='hint'>Pembersihan teks (otomatis / tahap).</div></div>", unsafe_allow_html=True)
+        st.markdown("<div class='kpi'><b>2) 📥 Input</b><div class='hint'>Unggah CSV dan pilih kolom teks.</div></div>", unsafe_allow_html=True)
     with c3:
-        st.markdown("<div class='kpi'><b>3) 🤖 Klasifikasi</b><div class='hint'>TF-IDF, split, SVM.</div></div>", unsafe_allow_html=True)
+        st.markdown("<div class='kpi'><b>3) 🧽 Proses</b><div class='hint'>Pembersihan teks (otomatis / tahap).</div></div>", unsafe_allow_html=True)
     with c4:
-        st.markdown("<div class='kpi'><b>4) 📊 Hasil</b><div class='hint'>Report, CM, dan output.</div></div>", unsafe_allow_html=True)
+        st.markdown("<div class='kpi'><b>4) 🤖 Klasifikasi</b><div class='hint'>TF-IDF, split, SVM.</div></div>", unsafe_allow_html=True)
+    with c5:
+        st.markdown("<div class='kpi'><b>5) 📊 Hasil</b><div class='hint'>Report, CM, dan output.</div></div>", unsafe_allow_html=True)
 
     st.markdown("---")
     if st.button("🚀 Mulai"):
@@ -441,6 +443,8 @@ elif st.session_state.menu == "Scraping":
            - **langsung dipakai sebagai dataset** (tanpa upload ulang).  
         
         **Cara mencari package name:** buka Google Play → URL biasanya mengandung `id=<package_name>`.
+        **Contohnya :** https://play.google.com/store/apps/details?id=co.id.bankbsi.superapp&hl=en
+        **Pada contoh diatas ambil pada bagian setelah id (abaikan "?" "&hl=en") yaitu co.id.bankbsi.superapp
         """
     )
 
@@ -998,6 +1002,7 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
 
 
