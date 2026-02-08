@@ -454,31 +454,7 @@ elif st.session_state.menu == "Input":
 elif st.session_state.menu == "Proses":
     st.title("Proses (Preprocessing)")
     st.write("Di sini kamu bisa memilih menjalankan preprocessing **otomatis** atau **tahap per tahap**.")
-    #Reset Proses
-    st.markdown("### Reset Proses")
-    colR1, colR2 = st.columns([1, 3])
-    
-    with colR1:
-        if st.button("🧹 Reset preprocessing"):
-            # reset semua output preprocessing
-            for k in ["pp_casefold","pp_normal","pp_clean","pp_stop","pp_stem","pp_filterlex","pp_labeled"]:
-                st.session_state[k] = None
-    
-            # reset juga downstream model biar konsisten
-            for k in ["tfidf","tfidf_df","X_tfidf","X_train","X_test","y_train","y_test",
-                      "svm","y_pred","report","cm"]:
-                st.session_state[k] = None
-    
-            st.success("Preprocessing (dan hasil model) berhasil di-reset. Kamu bisa mulai ulang.")
-            st.rerun()
-    
-    with colR2:
-        st.markdown(
-            "<div class='hint'>Gunakan reset ini jika salah urutan tahap atau ingin mengulang dari awal tanpa upload ulang.</div>",
-            unsafe_allow_html=True
-        )
-    
-    st.markdown("---")
+   
 
     
     if st.session_state.df_work is None:
@@ -524,6 +500,32 @@ elif st.session_state.menu == "Proses":
 
         st.markdown("---")
 
+         #Reset Proses
+    st.markdown("### Reset Proses")
+    colR1, colR2 = st.columns([1, 3])
+    
+    with colR1:
+        if st.button("🧹 Reset preprocessing"):
+            # reset semua output preprocessing
+            for k in ["pp_casefold","pp_normal","pp_clean","pp_stop","pp_stem","pp_filterlex","pp_labeled"]:
+                st.session_state[k] = None
+    
+            # reset juga downstream model biar konsisten
+            for k in ["tfidf","tfidf_df","X_tfidf","X_train","X_test","y_train","y_test",
+                      "svm","y_pred","report","cm"]:
+                st.session_state[k] = None
+    
+            st.success("Preprocessing (dan hasil model) berhasil di-reset. Kamu bisa mulai ulang.")
+            st.rerun()
+    
+    with colR2:
+        st.markdown(
+            "<div class='hint'>Gunakan reset ini jika salah urutan tahap atau ingin mengulang dari awal tanpa upload ulang.</div>",
+            unsafe_allow_html=True
+        )
+    
+    st.markdown("---")
+        
         # Tombol Otomatis
         if mode_proses == "Otomatis (run all)":
             if st.button("▶️ Jalankan preprocessing (otomatis)"):
@@ -855,5 +857,6 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
 
