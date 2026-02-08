@@ -406,7 +406,7 @@ if st.session_state.menu == "Home":
     st.markdown("### Alur Penggunaan")
     c1, c2, c3, c4, c5 = st.columns(5)
     with c1:
-        st.markdown("<div class='kpi'><b>1) 🕷️ Scraping</b><div class='hint'>Scraping dataset ulasan.</div></div>", unsafe_allow_html=True)
+        st.markdown("<div class='kpi'><b>1) 🕷️ Scraping (Opsional)</b><div class='hint'>Scraping dataset ulasan.</div></div>", unsafe_allow_html=True)
     with c2:
         st.markdown("<div class='kpi'><b>2) 📥 Input</b><div class='hint'>Unggah CSV dan pilih kolom teks.</div></div>", unsafe_allow_html=True)
     with c3:
@@ -1002,6 +1002,7 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
 
 
