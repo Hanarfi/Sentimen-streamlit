@@ -422,14 +422,14 @@ if st.session_state.menu == "Home":
         """
         <div class="card">
             <span class="badge">Sistem Analisis Sentimen</span>
-            <h2 style="margin-top:10px;">TF-IDF + SVM untuk Ulasan Pengguna</h2>
+            <h2 style="margin-top:10px;">Penerapan Machine Learning Menggunakan SVM Untuk Menganalisis Sentimen</h2>
             <p class="muted">
                 Sistem melakukan analisis sentimen melalui:
                 <b>Preprocessing</b> → <b>Labeling Lexicon</b> → <b>TF-IDF</b> → <b>SVM</b>.
                 Kamu bisa menjalankan tahap demi tahap (Detail) atau otomatis (Awam).
             </p>
             <p class="muted">
-                Output: distribusi sentimen, classification report, confusion matrix, serta file hasil (Excel) dan model (PKL).
+                Output: distribusi sentimen, classification report, confusion matrix, serta file hasil (Excel).
             </p>
         </div>
         """,
@@ -722,19 +722,37 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         st.session_state[k] = None
 
                     st.success(f"TF-IDF selesai. Total fitur: {tfidf_df.shape[1]}")
+                    #TF-IDF
+                    if st.session_state.tfidf_df is not None:
+                        st.markdown("### Hasil TF-IDF (Preview)")
+                    
+                        # kontrol preview agar ringan
+                        colp1, colp2, colp3 = st.columns([1.2, 1.2, 2])
+                        with colp1:
+                            preview_rows = st.slider("Jumlah baris (preview)", 5, 100, 20, 5)
+                        with colp2:
+                            preview_cols = st.slider("Jumlah fitur/kolom (preview)", 10, 300, 50, 10)
+                        with colp3:
+                            st.caption("Tabel hanya preview agar ringan. File lengkap tetap bisa didownload.")
+                    
+                        tfidf_df = st.session_state.tfidf_df
+                    
+                        # ambil subset
+                        preview_df = tfidf_df.iloc[:preview_rows, :min(preview_cols, tfidf_df.shape[1])]
+                        st.dataframe(preview_df, use_container_width=True)
+                    
+                        # tetap sediakan download lengkap
+                        tfidf_excel = to_excel_bytes(tfidf_df, sheet_name="tfidf")
+                        st.download_button(
+                            "Download TF-IDF Lengkap (Excel)",
+                            data=tfidf_excel,
+                            file_name="hasil_tfidf.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
+                        st.markdown("#### Top 20 fitur dengan rata-rata TF-IDF tertinggi")
+                        top_features = tfidf_df.mean(axis=0).sort_values(ascending=False).head(20)
+                        st.dataframe(top_features.reset_index().rename(columns={"index":"fitur", 0:"rata_rata_tfidf"}), use_container_width=True)
 
-                if st.session_state.tfidf_df is not None:
-                    st.markdown("### Hasil TF-IDF (Lengkap)")
-                    st.caption("Jika fitur sangat banyak, tabel ini bisa berat. Kamu juga bisa download Excel.")
-                    st.dataframe(st.session_state.tfidf_df, use_container_width=True)
-
-                    tfidf_excel = to_excel_bytes(st.session_state.tfidf_df, sheet_name="tfidf")
-                    st.download_button(
-                        "Download TF-IDF (Excel)",
-                        data=tfidf_excel,
-                        file_name="hasil_tfidf.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
 
                 # CV (nilai akademik)
                 if run_cv:
@@ -858,3 +876,4 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
