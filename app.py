@@ -14,7 +14,7 @@ from nltk.corpus import stopwords
 from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.model_selection import train_test_split
 from sklearn.svm import SVC
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 
@@ -29,10 +29,7 @@ def inject_academic_dark():
     st.markdown(
         """
         <style>
-            .stApp {
-                background: #0b0f17;
-                color: #E5E7EB;
-            }
+            .stApp { background: #0b0f17; color: #E5E7EB; }
             section[data-testid="stSidebar"] {
                 background: #0a0e16;
                 border-right: 1px solid rgba(255,255,255,0.06);
@@ -40,7 +37,6 @@ def inject_academic_dark():
             h1, h2, h3, h4 { color: #F9FAFB !important; }
             p, li, label, div, span { color: #E5E7EB; }
 
-            /* Buttons: solid, not flashy */
             .stButton>button {
                 background: #1f2937;
                 color: #F9FAFB;
@@ -63,14 +59,12 @@ def inject_academic_dark():
                 font-weight: 700;
             }
 
-            /* Dataframes */
             div[data-testid="stDataFrame"] {
                 border: 1px solid rgba(255,255,255,0.06);
                 border-radius: 10px;
                 overflow: hidden;
             }
 
-            /* Subtle separators */
             hr {
                 border: none;
                 border-top: 1px solid rgba(255,255,255,0.08);
@@ -79,8 +73,10 @@ def inject_academic_dark():
 
             .muted { color: rgba(229,231,235,0.75); }
             .hint  { color: rgba(229,231,235,0.65); font-size: 0.92rem; }
-            .kpi   { padding: 10px 12px; background: rgba(255,255,255,0.03);
-                     border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; }
+            .kpi   {
+                padding: 10px 12px; background: rgba(255,255,255,0.03);
+                border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;
+            }
         </style>
         """,
         unsafe_allow_html=True
@@ -174,7 +170,7 @@ def datacleaning(text: str) -> str:
 
 def remove_stopwords(text: str) -> str:
     stop_words = set(stopwords.words("indonesian"))
-    tokens = str(text).split()  # aman tanpa punkt/punkt_tab
+    tokens = str(text).split()
     filtered = [w for w in tokens if w not in stop_words]
     return " ".join(filtered)
 
@@ -253,7 +249,6 @@ def plot_confusion(cm, labels=("negatif", "positif"), title="Confusion Matrix"):
     st.pyplot(fig)
     plt.close(fig)
 
-    # persentase per true class
     row_sums = cm.sum(axis=1, keepdims=True)
     with np.errstate(divide="ignore", invalid="ignore"):
         cm_pct = np.where(row_sums == 0, 0, cm / row_sums) * 100
@@ -289,7 +284,6 @@ def make_model_bundle(tfidf: TfidfVectorizer, svm: SVC):
 def init_state():
     defaults = {
         "menu": "Home",
-        "mode": "Awam",
 
         "raw_df": None,
         "df_work": None,
@@ -319,7 +313,6 @@ def init_state():
         "y_pred": None,
         "report": None,
         "cm": None,
-        "cv_scores": None,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -340,7 +333,7 @@ if st.session_state.kamus is None or st.session_state.lex_pos is None or st.sess
 
 
 # =========================================================
-# Sidebar - navigation buttons + mode buttons + progress
+# Sidebar - navigation + progress + resources + reset
 # =========================================================
 def nav_button(label, icon, target_menu):
     is_active = (st.session_state.menu == target_menu)
@@ -355,19 +348,8 @@ def nav_button(label, icon, target_menu):
 st.sidebar.markdown("## Navigasi")
 nav_button("Home", "🏠", "Home")
 nav_button("Input", "📥", "Input")
-nav_button("Preprocessing", "🧽", "Preprocessing")
+nav_button("Proses", "🧽", "Proses")
 nav_button("Klasifikasi SVM", "🤖", "Klasifikasi SVM")
-
-st.sidebar.markdown("---")
-st.sidebar.markdown("## Mode")
-col_m1, col_m2 = st.sidebar.columns(2)
-with col_m1:
-    if st.sidebar.button("👤 Awam"):
-        st.session_state.mode = "Awam"
-with col_m2:
-    if st.sidebar.button("🔬 Detail"):
-        st.session_state.mode = "Detail"
-st.sidebar.markdown(f"<div class='hint'>Mode aktif: <b>{st.session_state.mode}</b></div>", unsafe_allow_html=True)
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("## Progress")
@@ -395,15 +377,8 @@ else:
     st.sidebar.write(f"- Lexicon -: {len(st.session_state.lex_neg)}")
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("## Parameter Model")
-test_size = st.sidebar.slider("Test size", 0.1, 0.4, 0.2, 0.05)
-random_state = st.sidebar.number_input("Random state", min_value=0, value=42, step=1)
-C = st.sidebar.number_input("C", min_value=0.01, value=1.0, step=0.1)
-kernel = st.sidebar.selectbox("Kernel", ["linear", "rbf", "poly", "sigmoid"], index=0)
-
-st.sidebar.markdown("---")
 if st.sidebar.button("🧹 Reset"):
-    keep = {"menu", "mode", "kamus", "lex_pos", "lex_neg", "res_errors"}
+    keep = {"menu", "kamus", "lex_pos", "lex_neg", "res_errors"}
     for k in list(st.session_state.keys()):
         if k not in keep:
             st.session_state[k] = None
@@ -412,7 +387,7 @@ if st.sidebar.button("🧹 Reset"):
 
 
 # =========================================================
-# HOME (Onboarding / step visual)  ✅ feature #1
+# HOME
 # =========================================================
 if st.session_state.menu == "Home":
     st.title("Sistem Analisis Sentimen Ulasan Pengguna")
@@ -426,11 +401,11 @@ if st.session_state.menu == "Home":
     with c1:
         st.markdown("<div class='kpi'><b>1) 📥 Input</b><div class='hint'>Unggah CSV dan pilih kolom teks.</div></div>", unsafe_allow_html=True)
     with c2:
-        st.markdown("<div class='kpi'><b>2) 🧽 Preprocessing</b><div class='hint'>Pembersihan teks bertahap.</div></div>", unsafe_allow_html=True)
+        st.markdown("<div class='kpi'><b>2) 🧽 Proses</b><div class='hint'>Pembersihan teks (otomatis / tahap).</div></div>", unsafe_allow_html=True)
     with c3:
-        st.markdown("<div class='kpi'><b>3) 🤖 Klasifikasi</b><div class='hint'>TF-IDF dan SVM.</div></div>", unsafe_allow_html=True)
+        st.markdown("<div class='kpi'><b>3) 🤖 Klasifikasi</b><div class='hint'>TF-IDF, split, SVM.</div></div>", unsafe_allow_html=True)
     with c4:
-        st.markdown("<div class='kpi'><b>4) 📊 Hasil</b><div class='hint'>Report, CM, dan file output.</div></div>", unsafe_allow_html=True)
+        st.markdown("<div class='kpi'><b>4) 📊 Hasil</b><div class='hint'>Report, CM, dan output.</div></div>", unsafe_allow_html=True)
 
     st.markdown("---")
     if st.button("🚀 Mulai"):
@@ -460,13 +435,13 @@ elif st.session_state.menu == "Input":
             # reset downstream states
             for k in ["pp_casefold","pp_normal","pp_clean","pp_stop","pp_stem","pp_filterlex","pp_labeled",
                       "tfidf","tfidf_df","X_tfidf","X_train","X_test","y_train","y_test",
-                      "svm","y_pred","report","cm","cv_scores"]:
+                      "svm","y_pred","report","cm"]:
                 st.session_state[k] = None
 
             st.session_state.df_work = work
             st.session_state.chosen_col = chosen
-            st.success("Data siap. Lanjut ke menu Preprocessing.")
-            st.session_state.menu = "Preprocessing"
+            st.success("Data siap. Lanjut ke menu Proses.")
+            st.session_state.menu = "Proses"
             st.rerun()
 
     if st.session_state.df_work is not None:
@@ -474,11 +449,11 @@ elif st.session_state.menu == "Input":
 
 
 # =========================================================
-# PREPROCESSING  ✅ feature #3 spinner/progress
+# PROSES (Preprocessing)
 # =========================================================
-elif st.session_state.menu == "Preprocessing":
-    st.title("Preprocessing")
-    st.write("Tahapan preprocessing dapat dijalankan otomatis (Awam) atau bertahap (Detail).")
+elif st.session_state.menu == "Proses":
+    st.title("Proses (Preprocessing)")
+    st.write("Di sini kamu bisa memilih menjalankan preprocessing **otomatis** atau **tahap per tahap**.")
 
     if st.session_state.df_work is None:
         st.warning("Belum ada data. Silakan ke menu Input.")
@@ -487,6 +462,7 @@ elif st.session_state.menu == "Preprocessing":
     else:
         base_df = st.session_state.df_work.copy()
 
+        # steps
         def step_casefold(df):
             out = df.copy(); out["content"] = out["content"].apply(CaseFolding); return drop_empty_rows(out)
         def step_normalisasi(df):
@@ -513,28 +489,32 @@ elif st.session_state.menu == "Preprocessing":
             out["Sentimen"] = res[1]
             return out
 
-        colA, colB = st.columns([1.2, 2])
-        with colA:
-            run_all = st.button("▶️ Jalankan preprocessing (otomatis)")
-        with colB:
-            st.markdown("<div class='hint'>Mode Detail menyediakan tombol per tahap pada bagian bawah.</div>", unsafe_allow_html=True)
+        # pilihan mode di MENU PROSES (bukan sidebar)
+        mode_proses = st.radio(
+            "Pilih cara menjalankan preprocessing:",
+            ["Otomatis (run all)", "Tahap per tahap"],
+            horizontal=True
+        )
 
-        if run_all:
-            progress = st.progress(0)
-            with st.spinner("Menjalankan preprocessing..."):
-                st.session_state.pp_casefold = step_casefold(base_df);   progress.progress(15); time.sleep(0.05)
-                st.session_state.pp_normal = step_normalisasi(st.session_state.pp_casefold); progress.progress(30); time.sleep(0.05)
-                st.session_state.pp_clean = step_clean(st.session_state.pp_normal); progress.progress(45); time.sleep(0.05)
-                st.session_state.pp_stop = step_stopword(st.session_state.pp_clean); progress.progress(60); time.sleep(0.05)
-                st.session_state.pp_stem = step_stemming(st.session_state.pp_stop); progress.progress(75); time.sleep(0.05)
-                st.session_state.pp_filterlex = step_filterlex(st.session_state.pp_stem); progress.progress(90); time.sleep(0.05)
-                st.session_state.pp_labeled = step_labeling(st.session_state.pp_filterlex); progress.progress(100)
-            st.success("Preprocessing + labeling selesai.")
+        st.markdown("---")
 
-        # Detail: step-by-step + preview
-        if st.session_state.mode == "Detail":
-            st.markdown("---")
-            st.subheader("Tahapan (Detail)")
+        # Tombol Otomatis
+        if mode_proses == "Otomatis (run all)":
+            if st.button("▶️ Jalankan preprocessing (otomatis)"):
+                progress = st.progress(0)
+                with st.spinner("Menjalankan preprocessing..."):
+                    st.session_state.pp_casefold = step_casefold(base_df);   progress.progress(15); time.sleep(0.05)
+                    st.session_state.pp_normal = step_normalisasi(st.session_state.pp_casefold); progress.progress(30); time.sleep(0.05)
+                    st.session_state.pp_clean = step_clean(st.session_state.pp_normal); progress.progress(45); time.sleep(0.05)
+                    st.session_state.pp_stop = step_stopword(st.session_state.pp_clean); progress.progress(60); time.sleep(0.05)
+                    st.session_state.pp_stem = step_stemming(st.session_state.pp_stop); progress.progress(75); time.sleep(0.05)
+                    st.session_state.pp_filterlex = step_filterlex(st.session_state.pp_stem); progress.progress(90); time.sleep(0.05)
+                    st.session_state.pp_labeled = step_labeling(st.session_state.pp_filterlex); progress.progress(100)
+                st.success("Preprocessing + labeling selesai.")
+
+        # Tahap per tahap
+        else:
+            st.subheader("Tahapan (Tahap per tahap)")
             with st.expander("1) Case Folding", expanded=False):
                 if st.button("Jalankan Case Folding"):
                     with st.spinner("Case folding..."):
@@ -621,18 +601,18 @@ elif st.session_state.menu == "Preprocessing":
 
 
 # =========================================================
-# KLASIFIKASI SVM  ✅ feature #2 summary cards + ✅ feature #3 spinner/progress
+# KLASIFIKASI SVM (Parameter pindah ke sini, CV dihapus)
 # =========================================================
 elif st.session_state.menu == "Klasifikasi SVM":
     st.title("Klasifikasi SVM")
-    st.write("Tahapan: TF-IDF → Split data → SVM → Evaluasi.")
+    st.write("Tahapan: **TF-IDF → Split data → SVM → Evaluasi**.")
 
     if st.session_state.pp_labeled is None:
-        st.warning("Data belum preprocessing+labeling. Silakan ke menu Preprocessing.")
+        st.warning("Data belum preprocessing+labeling. Silakan ke menu Proses.")
     else:
         df = st.session_state.pp_labeled.copy()
         if "Sentimen" not in df.columns:
-            st.error("Kolom 'Sentimen' tidak ditemukan. Jalankan labeling di menu Preprocessing.")
+            st.error("Kolom 'Sentimen' tidak ditemukan. Jalankan labeling di menu Proses.")
         else:
             df = df[df["Sentimen"].isin(["negatif", "positif"])].reset_index(drop=True)
             if df.empty:
@@ -641,15 +621,40 @@ elif st.session_state.menu == "Klasifikasi SVM":
                 if "content_list" not in df.columns:
                     df["content_list"] = df["content"].astype(str).str.split()
 
+                # PARAMETER MODEL di sini
+                st.markdown("### Parameter Model (di menu Klasifikasi SVM)")
+                with st.expander("Atur parameter", expanded=True):
+                    test_size = st.slider("Test size", 0.1, 0.4, 0.2, 0.05)
+                    random_state = st.number_input("Random state", min_value=0, value=42, step=1)
+                    C = st.number_input("C", min_value=0.01, value=1.0, step=0.1)
+                    kernel = st.selectbox("Kernel", ["linear", "rbf", "poly", "sigmoid"], index=0)
+
+                st.markdown("---")
+
+                # ===== GUARD / PRASYARAT =====
+                can_tfidf = True  # di tahap ini df sudah ada (neg/pos)
+                can_split = st.session_state.X_tfidf is not None
+                can_svm = (st.session_state.X_train is not None) and (st.session_state.X_test is not None)
+
                 colA, colB, colC, colD = st.columns([1.2, 1.2, 1.2, 2])
+
                 with colA:
-                    do_tfidf = st.button("1) TF-IDF")
+                    do_tfidf = st.button("1) TF-IDF", disabled=not can_tfidf)
+
                 with colB:
-                    do_split = st.button("2) Split")
+                    do_split = st.button("2) Split", disabled=not can_split)
+
                 with colC:
-                    do_svm = st.button("3) SVM")
+                    do_svm = st.button("3) SVM", disabled=not can_svm)
+
                 with colD:
-                    do_cv = st.button("🧪 Cross-validation (5-fold)")
+                    # hint status prasyarat (UX)
+                    if not can_split:
+                        st.markdown("<div class='hint'>Split terkunci: jalankan <b>TF-IDF</b> dulu.</div>", unsafe_allow_html=True)
+                    elif not can_svm:
+                        st.markdown("<div class='hint'>SVM terkunci: jalankan <b>Split</b> dulu.</div>", unsafe_allow_html=True)
+                    else:
+                        st.markdown("<div class='hint'>Semua tahapan siap dijalankan.</div>", unsafe_allow_html=True)
 
                 # TF-IDF
                 if do_tfidf:
@@ -657,8 +662,10 @@ elif st.session_state.menu == "Klasifikasi SVM":
                     with st.spinner("Menghitung TF-IDF..."):
                         X_text = df["content_list"].apply(lambda x: " ".join(x) if isinstance(x, list) else str(x))
                         progress.progress(30)
+
                         tfidf = TfidfVectorizer()
                         X_tfidf = tfidf.fit_transform(X_text).toarray()
+
                         progress.progress(90)
                         tfidf_df = pd.DataFrame(X_tfidf, columns=tfidf.get_feature_names_out())
                         progress.progress(100)
@@ -667,12 +674,14 @@ elif st.session_state.menu == "Klasifikasi SVM":
                     st.session_state.X_tfidf = X_tfidf
                     st.session_state.tfidf_df = tfidf_df
 
-                    # reset downstream
-                    for k in ["X_train","X_test","y_train","y_test","svm","y_pred","report","cm","cv_scores"]:
+                    # reset downstream (karena fitur berubah)
+                    for k in ["X_train", "X_test", "y_train", "y_test", "svm", "y_pred", "report", "cm"]:
                         st.session_state[k] = None
-                    st.success(f"TF-IDF selesai. Jumlah fitur: {tfidf_df.shape[1]}")
 
-                # TF-IDF preview (not full)
+                    st.success(f"TF-IDF selesai. Jumlah fitur: {tfidf_df.shape[1]}")
+                    st.rerun()  # supaya tombol Split langsung aktif
+
+                # TF-IDF preview
                 if st.session_state.tfidf_df is not None:
                     st.markdown("---")
                     st.subheader("Hasil TF-IDF (Preview)")
@@ -696,67 +705,50 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
 
-                # CV
-                if do_cv:
-                    if st.session_state.X_tfidf is None:
-                        st.error("Jalankan TF-IDF dulu.")
-                    else:
-                        with st.spinner("Menjalankan cross-validation..."):
-                            y = df["Sentimen"]
-                            model_cv = SVC(kernel=kernel, C=float(C))
-                            scores = cross_val_score(model_cv, st.session_state.X_tfidf, y, cv=5)
-                        st.session_state.cv_scores = scores
-                        st.success("Cross-validation selesai.")
-                        st.write(f"Skor per fold: {np.round(scores, 4)}")
-                        st.write(f"Rata-rata accuracy: **{scores.mean():.4f}** (± {scores.std():.4f})")
-
                 # Split
                 if do_split:
-                    if st.session_state.X_tfidf is None:
-                        st.error("Jalankan TF-IDF dulu.")
-                    else:
-                        with st.spinner("Melakukan split data..."):
-                            y = df["Sentimen"]
-                            X_train, X_test, y_train, y_test = train_test_split(
-                                st.session_state.X_tfidf, y,
-                                test_size=float(test_size),
-                                random_state=int(random_state)
-                            )
-                        st.session_state.X_train, st.session_state.X_test = X_train, X_test
-                        st.session_state.y_train, st.session_state.y_test = y_train, y_test
-                        st.success(f"Split selesai. Train: {len(y_train)} | Test: {len(y_test)}")
+                    with st.spinner("Melakukan split data..."):
+                        y = df["Sentimen"]
+                        X_train, X_test, y_train, y_test = train_test_split(
+                            st.session_state.X_tfidf, y,
+                            test_size=float(test_size),
+                            random_state=int(random_state)
+                        )
+                    st.session_state.X_train, st.session_state.X_test = X_train, X_test
+                    st.session_state.y_train, st.session_state.y_test = y_train, y_test
+                    st.success(f"Split selesai. Train: {len(y_train)} | Test: {len(y_test)}")
+                    st.rerun()  # supaya tombol SVM langsung aktif
 
                 # SVM
                 if do_svm:
-                    if st.session_state.X_train is None or st.session_state.X_test is None:
-                        st.error("Jalankan Split dulu.")
-                    else:
-                        progress = st.progress(0)
-                        with st.spinner("Melatih model SVM..."):
-                            progress.progress(20)
-                            svm = SVC(kernel=kernel, C=float(C))
-                            svm.fit(st.session_state.X_train, st.session_state.y_train)
-                            progress.progress(70)
-                            y_pred = svm.predict(st.session_state.X_test)
-                            progress.progress(100)
+                    progress = st.progress(0)
+                    with st.spinner("Melatih model SVM..."):
+                        progress.progress(20)
+                        svm = SVC(kernel=kernel, C=float(C))
+                        svm.fit(st.session_state.X_train, st.session_state.y_train)
 
-                        st.session_state.svm = svm
-                        st.session_state.y_pred = y_pred
+                        progress.progress(70)
+                        y_pred = svm.predict(st.session_state.X_test)
 
-                        acc = accuracy_score(st.session_state.y_test, y_pred)
-                        st.session_state.report = classification_report(st.session_state.y_test, y_pred, zero_division=0)
-                        st.session_state.cm = confusion_matrix(st.session_state.y_test, y_pred, labels=["negatif", "positif"])
-                        st.success(f"SVM selesai. Accuracy: {acc:.4f}")
+                        progress.progress(100)
+
+                    st.session_state.svm = svm
+                    st.session_state.y_pred = y_pred
+
+                    acc = accuracy_score(st.session_state.y_test, y_pred)
+                    st.session_state.report = classification_report(st.session_state.y_test, y_pred, zero_division=0)
+                    st.session_state.cm = confusion_matrix(st.session_state.y_test, y_pred, labels=["negatif", "positif"])
+                    st.success(f"SVM selesai. Accuracy: {acc:.4f}")
 
                 # Results
                 if st.session_state.report is not None and st.session_state.cm is not None:
                     st.markdown("---")
-                    st.subheader("Ringkasan Hasil (Summary Cards)")  # ✅ feature #2
+                    st.subheader("Ringkasan Hasil (Summary Cards)")
                     acc = accuracy_score(st.session_state.y_test, st.session_state.y_pred)
 
-                    y_pred = pd.Series(st.session_state.y_pred)
-                    majority = y_pred.value_counts().idxmax()
-                    maj_pct = y_pred.value_counts(normalize=True).max() * 100
+                    y_pred_series = pd.Series(st.session_state.y_pred)
+                    majority = y_pred_series.value_counts().idxmax()
+                    maj_pct = y_pred_series.value_counts(normalize=True).max() * 100
 
                     m1, m2, m3 = st.columns(3)
                     m1.metric("Accuracy (Test)", f"{acc:.4f}")
@@ -770,7 +762,6 @@ elif st.session_state.menu == "Klasifikasi SVM":
                     plot_confusion(st.session_state.cm, labels=("negatif", "positif"), title="Confusion Matrix SVM")
                     st.info(biggest_confusion_insight(st.session_state.cm, labels=("negatif", "positif")))
 
-                    # Simple distribution chart
                     st.subheader("Distribusi Prediksi (Data Uji)")
                     plot_bar_counts(pd.Series(st.session_state.y_pred), "Distribusi Prediksi (Test)")
 
