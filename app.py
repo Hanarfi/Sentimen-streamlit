@@ -357,19 +357,47 @@ if st.session_state.kamus is None or st.session_state.lex_pos is None or st.sess
 
 
 # =========================================================
-# Sidebar Navigation + Progress Tracker + Mode
+# SIDEBAR - NAVIGASI (BUTTON + ICON)
 # =========================================================
-st.sidebar.markdown("## 📌 Navigasi")
-menu = st.sidebar.radio(
-    "Menu",
-    ["Home", "Input", "Preprocessing", "Klasifikasi SVM"],
-    index=["Home", "Input", "Preprocessing", "Klasifikasi SVM"].index(st.session_state.menu)
-)
-st.session_state.menu = menu
+st.sidebar.markdown("## 🧭 Navigasi")
+
+def nav_button(label, icon, target_menu):
+    is_active = st.session_state.menu == target_menu
+    btn_label = f"{icon}  {label}"
+    if is_active:
+        st.sidebar.markdown(f"**➡️ {btn_label}**")
+    else:
+        if st.sidebar.button(btn_label):
+            st.session_state.menu = target_menu
+            st.rerun()
+
+nav_button("Home", "🏠", "Home")
+nav_button("Input", "📥", "Input")
+nav_button("Preprocessing", "🧽", "Preprocessing")
+nav_button("Klasifikasi SVM", "🤖", "Klasifikasi SVM")
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("## 🧭 Mode Penggunaan")
-st.session_state.mode = st.sidebar.radio("Pilih mode", ["Awam", "Detail"], index=0 if st.session_state.mode == "Awam" else 1)
+
+# =========================================================
+# SIDEBAR - MODE PENGGUNAAN (BUTTON)
+# =========================================================
+st.sidebar.markdown("## ⚙️ Mode Penggunaan")
+
+col_m1, col_m2 = st.sidebar.columns(2)
+
+with col_m1:
+    if st.sidebar.button("👤 Awam"):
+        st.session_state.mode = "Awam"
+
+with col_m2:
+    if st.sidebar.button("🔬 Detail"):
+        st.session_state.mode = "Detail"
+
+st.sidebar.markdown(
+    f"<p style='font-size:13px; color:#9CA3AF;'>Mode aktif: <b>{st.session_state.mode}</b></p>",
+    unsafe_allow_html=True
+)
+
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("## ✅ Progress Tracker")
@@ -876,4 +904,5 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
