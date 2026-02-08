@@ -443,8 +443,8 @@ elif st.session_state.menu == "Scraping":
            - **langsung dipakai sebagai dataset** (tanpa upload ulang).  
         
         **Cara mencari package name:** buka Google Play → URL biasanya mengandung `id=<package_name>`.
-        **Contohnya :** https://play.google.com/store/apps/details?id=co.id.bankbsi.superapp&hl=en
-        **Pada contoh diatas ambil pada bagian setelah id (abaikan "?" "&hl=en") yaitu co.id.bankbsi.superapp
+        **Contohnya :** https://play.google.com/store/apps/details?id=co.id.bankbsi.superapp&hl=en.
+        Pada contoh diatas ambil pada bagian setelah id (abaikan "?" "&hl=en") yaitu co.id.bankbsi.superapp
         """
     )
 
@@ -1002,6 +1002,7 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
 
 
