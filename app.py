@@ -416,7 +416,7 @@ if st.session_state.menu == "Home":
 
     st.markdown("---")
     if st.button("🚀 Mulai"):
-        st.session_state.menu = "Input"
+        st.session_state.menu = "Scraping"
         st.rerun()
 
 
@@ -998,6 +998,7 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
 
 
