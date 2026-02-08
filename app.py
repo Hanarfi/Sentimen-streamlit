@@ -454,7 +454,33 @@ elif st.session_state.menu == "Input":
 elif st.session_state.menu == "Proses":
     st.title("Proses (Preprocessing)")
     st.write("Di sini kamu bisa memilih menjalankan preprocessing **otomatis** atau **tahap per tahap**.")
+    #Reset Proses
+    st.markdown("### Reset Proses")
+    colR1, colR2 = st.columns([1, 3])
+    
+    with colR1:
+        if st.button("🧹 Reset preprocessing"):
+            # reset semua output preprocessing
+            for k in ["pp_casefold","pp_normal","pp_clean","pp_stop","pp_stem","pp_filterlex","pp_labeled"]:
+                st.session_state[k] = None
+    
+            # reset juga downstream model biar konsisten
+            for k in ["tfidf","tfidf_df","X_tfidf","X_train","X_test","y_train","y_test",
+                      "svm","y_pred","report","cm"]:
+                st.session_state[k] = None
+    
+            st.success("Preprocessing (dan hasil model) berhasil di-reset. Kamu bisa mulai ulang.")
+            st.rerun()
+    
+    with colR2:
+        st.markdown(
+            "<div class='hint'>Gunakan reset ini jika salah urutan tahap atau ingin mengulang dari awal tanpa upload ulang.</div>",
+            unsafe_allow_html=True
+        )
+    
+    st.markdown("---")
 
+    
     if st.session_state.df_work is None:
         st.warning("Belum ada data. Silakan ke menu Input.")
     elif st.session_state.res_errors:
@@ -514,61 +540,96 @@ elif st.session_state.menu == "Proses":
 
         # Tahap per tahap
         else:
+            # helper aman untuk pilih prev dataframe
+            def pick_prev(*candidates):
+                for c in candidates:
+                    if c is not None:
+                        return c
+                return None
+            
+            # Tahap per tahap
             st.subheader("Tahapan (Tahap per tahap)")
+            
+            # 1) Case Folding
             with st.expander("1) Case Folding", expanded=False):
                 if st.button("Jalankan Case Folding"):
                     with st.spinner("Case folding..."):
                         st.session_state.pp_casefold = step_casefold(base_df)
                 if st.session_state.pp_casefold is not None:
                     show_preview(st.session_state.pp_casefold, "Hasil Case Folding", n=20)
-
+            
+            # 2) Normalisasi (butuh Case Folding)
             with st.expander("2) Normalisasi Kamus", expanded=False):
-                if st.button("Jalankan Normalisasi"):
-                    prev = st.session_state.pp_casefold or base_df
+                btn_norm = st.button("Jalankan Normalisasi", disabled=st.session_state.pp_casefold is None)
+                if st.session_state.pp_casefold is None:
+                    st.info("Jalankan **Case Folding** dulu.")
+                if btn_norm:
+                    prev = pick_prev(st.session_state.pp_casefold, base_df)
                     with st.spinner("Normalisasi..."):
                         st.session_state.pp_normal = step_normalisasi(prev)
                 if st.session_state.pp_normal is not None:
                     show_preview(st.session_state.pp_normal, "Hasil Normalisasi", n=20)
-
+            
+            # 3) Cleaning (butuh Normalisasi)
             with st.expander("3) Data Cleaning", expanded=False):
-                if st.button("Jalankan Cleaning"):
-                    prev = st.session_state.pp_normal or (st.session_state.pp_casefold or base_df)
+                btn_clean = st.button("Jalankan Cleaning", disabled=st.session_state.pp_normal is None)
+                if st.session_state.pp_normal is None:
+                    st.info("Jalankan **Normalisasi** dulu.")
+                if btn_clean:
+                    prev = pick_prev(st.session_state.pp_normal, base_df)
                     with st.spinner("Cleaning..."):
                         st.session_state.pp_clean = step_clean(prev)
                 if st.session_state.pp_clean is not None:
                     show_preview(st.session_state.pp_clean, "Hasil Data Cleaning", n=20)
-
+            
+            # 4) Stopword (butuh Cleaning)
             with st.expander("4) Stopword Removal", expanded=False):
-                if st.button("Jalankan Stopword"):
-                    prev = st.session_state.pp_clean or (st.session_state.pp_normal or base_df)
+                btn_stop = st.button("Jalankan Stopword", disabled=st.session_state.pp_clean is None)
+                if st.session_state.pp_clean is None:
+                    st.info("Jalankan **Cleaning** dulu.")
+                if btn_stop:
+                    prev = pick_prev(st.session_state.pp_clean, base_df)
                     with st.spinner("Stopword removal..."):
                         st.session_state.pp_stop = step_stopword(prev)
                 if st.session_state.pp_stop is not None:
                     show_preview(st.session_state.pp_stop, "Hasil Stopword Removal", n=20)
-
+            
+            # 5) Stemming (butuh Stopword)
             with st.expander("5) Stemming", expanded=False):
-                if st.button("Jalankan Stemming"):
-                    prev = st.session_state.pp_stop or (st.session_state.pp_clean or base_df)
+                btn_stem = st.button("Jalankan Stemming", disabled=st.session_state.pp_stop is None)
+                if st.session_state.pp_stop is None:
+                    st.info("Jalankan **Stopword Removal** dulu.")
+                if btn_stem:
+                    prev = pick_prev(st.session_state.pp_stop, base_df)
                     with st.spinner("Stemming..."):
                         st.session_state.pp_stem = step_stemming(prev)
                 if st.session_state.pp_stem is not None:
                     show_preview(st.session_state.pp_stem, "Hasil Stemming", n=20)
-
+            
+            # 6) Filter Lexicon (butuh Stemming)
             with st.expander("6) Filter Lexicon (hapus typo/OOV)", expanded=False):
-                if st.button("Jalankan Filter Lexicon"):
-                    prev = st.session_state.pp_stem or (st.session_state.pp_stop or base_df)
+                btn_flex = st.button("Jalankan Filter Lexicon", disabled=st.session_state.pp_stem is None)
+                if st.session_state.pp_stem is None:
+                    st.info("Jalankan **Stemming** dulu.")
+                if btn_flex:
+                    prev = pick_prev(st.session_state.pp_stem, base_df)
                     with st.spinner("Filter lexicon..."):
                         st.session_state.pp_filterlex = step_filterlex(prev)
                 if st.session_state.pp_filterlex is not None:
                     show_preview(st.session_state.pp_filterlex, "Hasil Filter Lexicon", n=20)
-
+            
+            # 7) Labeling (butuh Filter Lexicon)
             with st.expander("7) Labeling Lexicon", expanded=False):
-                if st.button("Jalankan Labeling"):
-                    prev = st.session_state.pp_filterlex or (st.session_state.pp_stem or base_df)
+                btn_lab = st.button("Jalankan Labeling", disabled=st.session_state.pp_filterlex is None)
+                if st.session_state.pp_filterlex is None:
+                    st.info("Jalankan **Filter Lexicon** dulu.")
+                if btn_lab:
+                    prev = pick_prev(st.session_state.pp_filterlex, base_df)
                     with st.spinner("Labeling..."):
                         st.session_state.pp_labeled = step_labeling(prev)
                 if st.session_state.pp_labeled is not None:
                     show_preview(st.session_state.pp_labeled, "Hasil Labeling", n=20)
+
 
         # Summary + chart + download
         if st.session_state.pp_labeled is not None:
@@ -794,4 +855,5 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
