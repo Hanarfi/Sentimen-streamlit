@@ -8,3 +8,4 @@ matplotlib
 seaborn
 emoji
 openpyxl
+google_play_scraper
