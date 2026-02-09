@@ -743,7 +743,7 @@ elif st.session_state.menu == "Proses":
                 if st.session_state.pp_casefold is not None:
                     show_preview(st.session_state.pp_casefold, "Hasil Case Folding", n=20)
                     # ✅ KETERANGAN JUMLAH DATA
-                    show_processed_count(base_df, st.session_state.pp_labeled, title="Keterangan Jumlah Data (Tahap per tahap)")
+                    show_processed_count(base_df, st.session_state.pp_casefold, title="Keterangan Jumlah Data - Case Folding")
             
             # 2) Normalisasi (butuh Case Folding)
             with st.expander("2) Normalisasi Kamus", expanded=False):
@@ -757,7 +757,7 @@ elif st.session_state.menu == "Proses":
                 if st.session_state.pp_normal is not None:
                     show_preview(st.session_state.pp_normal, "Hasil Normalisasi", n=20)
                     # ✅ KETERANGAN JUMLAH DATA
-                    show_processed_count(base_df, st.session_state.pp_labeled, title="Keterangan Jumlah Data (Tahap per tahap)")
+                    show_processed_count(st.session_state.pp_casefold, st.session_state.pp_normal, title="Keterangan Jumlah Data - Normalisasi")
             
             # 3) Cleaning (butuh Normalisasi)
             with st.expander("3) Data Cleansing", expanded=False):
@@ -771,7 +771,7 @@ elif st.session_state.menu == "Proses":
                 if st.session_state.pp_clean is not None:
                     show_preview(st.session_state.pp_clean, "Hasil Data Cleansing", n=20)
                     # ✅ KETERANGAN JUMLAH DATA
-                    show_processed_count(base_df, st.session_state.pp_labeled, title="Keterangan Jumlah Data (Tahap per tahap)")
+                    show_processed_count(st.session_state.pp_normal, st.session_state.pp_clean, title="Keterangan Jumlah Data - Data Cleansing")
             
             # 4) Stopword (butuh Cleansing)
             with st.expander("4) Stopword Removal", expanded=False):
@@ -785,7 +785,7 @@ elif st.session_state.menu == "Proses":
                 if st.session_state.pp_stop is not None:
                     show_preview(st.session_state.pp_stop, "Hasil Stopword Removal", n=20)
                     # ✅ KETERANGAN JUMLAH DATA
-                    show_processed_count(base_df, st.session_state.pp_labeled, title="Keterangan Jumlah Data (Tahap per tahap)")
+                    show_processed_count(st.session_state.pp_clean, st.session_state.pp_stop, title="Keterangan Jumlah Data - Stopword Removal")
             
             # 5) Stemming (butuh Stopword)
             with st.expander("5) Stemming", expanded=False):
@@ -799,7 +799,7 @@ elif st.session_state.menu == "Proses":
                 if st.session_state.pp_stem is not None:
                     show_preview(st.session_state.pp_stem, "Hasil Stemming", n=20)
                     # ✅ KETERANGAN JUMLAH DATA
-                    show_processed_count(base_df, st.session_state.pp_labeled, title="Keterangan Jumlah Data (Tahap per tahap)")
+                    show_processed_count(st.session_state.pp_stop, st.session_state.pp_stem, title="Keterangan Jumlah Data - Stemming")
 
             # 6) Tokenizing (butuh Stemming)
             with st.expander("6) Tokenizing", expanded=False):
@@ -815,7 +815,7 @@ elif st.session_state.menu == "Proses":
                 if st.session_state.pp_token is not None:
                     show_preview(st.session_state.pp_token, "Hasil Tokenizing", n=20)
                     # ✅ KETERANGAN JUMLAH DATA
-                    show_processed_count(base_df, st.session_state.pp_labeled, title="Keterangan Jumlah Data (Tahap per tahap)")
+                    show_processed_count(st.session_state.pp_stem, st.session_state.pp_token, title="Keterangan Jumlah Data - Tokenizing")
                     # tampilkan contoh token 5 baris pertama biar jelas tokennya
                     st.markdown("**Contoh token (5 baris pertama):**")
                     st.write(st.session_state.pp_token["content_list"].head(5))
@@ -832,7 +832,7 @@ elif st.session_state.menu == "Proses":
                 if st.session_state.pp_filterlex is not None:
                     show_preview(st.session_state.pp_filterlex, "Hasil Filter Lexicon", n=20)
                     # ✅ KETERANGAN JUMLAH DATA
-                    show_processed_count(base_df, st.session_state.pp_labeled, title="Keterangan Jumlah Data (Tahap per tahap)")
+                    show_processed_count(st.session_state.pp_token, st.session_state.pp_filterlex, title="Keterangan Jumlah Data - Filter Lexicon")
                         
             # 8) Labeling (butuh Filter Lexicon)
             with st.expander("8) Labeling Lexicon", expanded=False):
@@ -846,7 +846,7 @@ elif st.session_state.menu == "Proses":
                 if st.session_state.pp_labeled is not None:
                     show_preview(st.session_state.pp_labeled, "Hasil Labeling", n=20)
                      # ✅ KETERANGAN JUMLAH DATA
-                    show_processed_count(base_df, st.session_state.pp_labeled, title="Keterangan Jumlah Data (Tahap per tahap)")
+                    show_processed_count(st.session_state.pp_filterlex, st.session_state.pp_labeled, title="Keterangan Jumlah Data - Labeling")
 
 
         # Summary + chart + download
@@ -856,6 +856,7 @@ elif st.session_state.menu == "Proses":
 
             # selalu ambil versi TERBARU dari session_state
             df_lab = st.session_state.pp_labeled.copy()
+            show_processed_count(base_df, df_lab, title="Keterangan Jumlah Data - Total Setelah Preprocessing")
             
             # tombol filter netral
             if st.button("Filter netral (score == 0)"):
@@ -1142,5 +1143,6 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
 
