@@ -822,16 +822,27 @@ elif st.session_state.menu == "Proses":
         if st.session_state.pp_labeled is not None:
             st.markdown("---")
             st.subheader("Ringkasan Hasil Labeling (Lexicon)")
-            df_lab = st.session_state.pp_labeled
-            col1, col2 = st.columns([1, 1])
-            with col1:
-                st.write(df_lab["Sentimen"].value_counts())
-            with col2:
-                plot_bar_counts(df_lab["Sentimen"], "Distribusi Sentimen (Lexicon)")
 
+            # selalu ambil versi TERBARU dari session_state
+            df_lab = st.session_state.pp_labeled.copy()
+            
+            # tombol filter netral
             if st.button("Filter netral (score == 0)"):
                 st.session_state.pp_labeled = df_lab[df_lab["score"] != 0].reset_index(drop=True)
                 st.success("Netral dihapus (untuk proses SVM).")
+                st.rerun()  # ✅ supaya tabel & plot langsung berubah
+            
+            # setelah mungkin rerun, ambil lagi data terbaru untuk render
+            df_lab = st.session_state.pp_labeled
+            
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                # ✅ ini otomatis hilangkan baris 'netral' kalau sudah terhapus
+                st.write(df_lab["Sentimen"].value_counts().rename_axis("Sentimen").reset_index(name="count"))
+            
+            with col2:
+                # ✅ plot otomatis menyesuaikan data yang tersisa
+                plot_bar_counts(df_lab["Sentimen"], "Distribusi Sentimen (Lexicon)")
 
             excel_bytes = to_excel_bytes(st.session_state.pp_labeled, sheet_name="preprocessing")
             st.download_button(
@@ -1042,6 +1053,7 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
 
 
