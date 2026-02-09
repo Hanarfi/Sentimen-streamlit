@@ -306,6 +306,7 @@ def init_state():
         "pp_clean": None,
         "pp_stop": None,
         "pp_stem": None,
+        "pp_token": None,
         "pp_filterlex": None,
         "pp_labeled": None,
 
@@ -620,21 +621,32 @@ elif st.session_state.menu == "Proses":
             out = df.copy(); out["content"] = out["content"].apply(remove_stopwords); return drop_empty_rows(out)
         def step_stemming(df):
             out = df.copy(); out["content"] = out["content"].apply(stem_text); return drop_empty_rows(out)
-        def step_filterlex(df):
+        def step_tokenizing(df):
             out = df.copy()
             out["content_list"] = out["content"].astype(str).str.split()
-            out["content_list"] = out["content_list"].apply(lambda toks: filter_tokens_by_lexicon(toks, st.session_state.lex_pos, st.session_state.lex_neg))
-            out["content"] = out["content_list"].apply(lambda toks: " ".join(toks))
-            return drop_empty_rows(out)
-        def step_labeling(df):
+            return out
+        def step_filterlex(df):
             out = df.copy()
             if "content_list" not in out.columns:
                 out["content_list"] = out["content"].astype(str).str.split()
-            res = out["content_list"].apply(lambda toks: sentiment_analysis_lexicon_indonesia(toks, st.session_state.lex_pos, st.session_state.lex_neg))
-            res = list(zip(*res))
-            out["score"] = res[0]
-            out["Sentimen"] = res[1]
-            return out
+        
+            out["content_list"] = out["content_list"].apply(
+                lambda toks: filter_tokens_by_lexicon(toks, st.session_state.lex_pos, st.session_state.lex_neg)
+            )
+            out["content"] = out["content_list"].apply(lambda toks: " ".join(toks))
+            return drop_empty_rows(out)
+            def step_labeling(df):
+                out = df.copy()
+                if "content_list" not in out.columns:
+                    out["content_list"] = out["content"].astype(str).str.split()
+            
+                res = out["content_list"].apply(
+                    lambda toks: sentiment_analysis_lexicon_indonesia(toks, st.session_state.lex_pos, st.session_state.lex_neg)
+                )
+                res = list(zip(*res))
+                out["score"] = res[0]
+                out["Sentimen"] = res[1]
+                return out
 
         # pilihan mode di MENU PROSES (bukan sidebar)
         mode_proses = st.radio(
@@ -652,7 +664,7 @@ elif st.session_state.menu == "Proses":
         with colR1:
             if st.button("🧹 Reset preprocessing"):
                 # reset semua output preprocessing
-                for k in ["pp_casefold","pp_normal","pp_clean","pp_stop","pp_stem","pp_filterlex","pp_labeled"]:
+                for k in ["pp_casefold","pp_normal","pp_clean","pp_stop","pp_stem","pp_token","pp_filterlex","pp_labeled"]:
                     st.session_state[k] = None
         
                 # reset juga downstream model biar konsisten
@@ -752,21 +764,37 @@ elif st.session_state.menu == "Proses":
                         st.session_state.pp_stem = step_stemming(prev)
                 if st.session_state.pp_stem is not None:
                     show_preview(st.session_state.pp_stem, "Hasil Stemming", n=20)
-            
-            # 6) Filter Lexicon (butuh Stemming)
-            with st.expander("6) Filter Lexicon (hapus typo/OOV)", expanded=False):
-                btn_flex = st.button("Jalankan Filter Lexicon", disabled=st.session_state.pp_stem is None)
+
+            # 6) Tokenizing (butuh Stemming)
+            with st.expander("6) Tokenizing", expanded=False):
+                btn_tok = st.button("Jalankan Tokenizing", disabled=st.session_state.pp_stem is None)
                 if st.session_state.pp_stem is None:
                     st.info("Jalankan **Stemming** dulu.")
-                if btn_flex:
+                if btn_tok:
                     prev = pick_prev(st.session_state.pp_stem, base_df)
+                    with st.spinner("Tokenizing..."):
+                        st.session_state.pp_token = step_tokenizing(prev)
+            
+                if st.session_state.pp_token is not None:
+                    show_preview(st.session_state.pp_token, "Hasil Tokenizing", n=20)
+                    # tampilkan contoh token 5 baris pertama biar jelas tokennya
+                    st.markdown("**Contoh token (5 baris pertama):**")
+                    st.write(st.session_state.pp_token["content_list"].head(5))
+            
+            # 7) Filter Lexicon (butuh Tokenizing)
+            with st.expander("7) Filter Lexicon (hapus typo/OOV)", expanded=False):
+                btn_flex = st.button("Jalankan Filter Lexicon", disabled=st.session_state.pp_token is None)
+                if st.session_state.pp_token is None:
+                    st.info("Jalankan **Tokenizing** dulu.")
+                if btn_flex:
+                    prev = pick_prev(st.session_state.pp_token, base_df)
                     with st.spinner("Filter lexicon..."):
                         st.session_state.pp_filterlex = step_filterlex(prev)
                 if st.session_state.pp_filterlex is not None:
                     show_preview(st.session_state.pp_filterlex, "Hasil Filter Lexicon", n=20)
-            
-            # 7) Labeling (butuh Filter Lexicon)
-            with st.expander("7) Labeling Lexicon", expanded=False):
+                        
+           # 8) Labeling (butuh Filter Lexicon)
+            with st.expander("8) Labeling Lexicon", expanded=False):
                 btn_lab = st.button("Jalankan Labeling", disabled=st.session_state.pp_filterlex is None)
                 if st.session_state.pp_filterlex is None:
                     st.info("Jalankan **Filter Lexicon** dulu.")
@@ -1002,6 +1030,7 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
 
 
