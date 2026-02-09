@@ -321,6 +321,7 @@ def init_state():
         "pp_token": None,
         "pp_filterlex": None,
         "pp_labeled": None,
+        "pp_labeled_raw": None,
 
         # model artifacts
         "tfidf": None,
@@ -677,7 +678,7 @@ elif st.session_state.menu == "Proses":
         with colR1:
             if st.button("🧹 Reset preprocessing"):
                 # reset semua output preprocessing
-                for k in ["pp_casefold","pp_normal","pp_clean","pp_stop","pp_stem","pp_token","pp_filterlex","pp_labeled"]:
+                for k in ["pp_casefold","pp_normal","pp_clean","pp_stop","pp_stem","pp_token","pp_filterlex","pp_labeled","pp_labeled_raw"]:
                     st.session_state[k] = None
         
                 # reset juga downstream model biar konsisten
@@ -706,8 +707,9 @@ elif st.session_state.menu == "Proses":
                     st.session_state.pp_clean = step_clean(st.session_state.pp_normal); progress.progress(45); time.sleep(0.05)
                     st.session_state.pp_stop = step_stopword(st.session_state.pp_clean); progress.progress(60); time.sleep(0.05)
                     st.session_state.pp_stem = step_stemming(st.session_state.pp_stop); progress.progress(75); time.sleep(0.05)
-                    st.session_state.pp_filterlex = step_filterlex(st.session_state.pp_stem); progress.progress(90); time.sleep(0.05)
-                    st.session_state.pp_labeled = step_labeling(st.session_state.pp_filterlex); progress.progress(100)
+                    st.session_state.pp_filterlex = step_filterlex(st.session_state.pp_stem); progress.progress(80); time.sleep(0.05)
+                    st.session_state.pp_labeled = step_labeling(st.session_state.pp_filterlex); progress.progress(90); time.sleep(0.05)
+                    st.session_state.pp_labeled_raw = st.session_state.pp_labeled.copy(); progress.progress(100); time.sleep(0.05)
                 st.success("Preprocessing + labeling selesai.")
                 # ✅ Tambahkan ini: tampilkan preview hasil preprocessing
                 st.markdown("---")
@@ -843,10 +845,16 @@ elif st.session_state.menu == "Proses":
                     prev = pick_prev(st.session_state.pp_filterlex, base_df)
                     with st.spinner("Labeling..."):
                         st.session_state.pp_labeled = step_labeling(prev)
+                        st.session_state.pp_labeled_raw = st.session_state.pp_labeled.copy()  # ✅ simpan versi asli
                 if st.session_state.pp_labeled is not None:
                     show_preview(st.session_state.pp_labeled, "Hasil Labeling", n=20)
                      # ✅ KETERANGAN JUMLAH DATA
-                    show_processed_count(st.session_state.pp_filterlex, st.session_state.pp_labeled, title="Keterangan Jumlah Data - Labeling")
+                    show_processed_count(
+                        st.session_state.pp_filterlex,
+                        st.session_state.pp_labeled_raw if st.session_state.pp_labeled_raw is not None else st.session_state.pp_labeled,
+                        title="Keterangan Jumlah Data - Labeling"
+                    )
+
 
 
         # Summary + chart + download
@@ -860,11 +868,15 @@ elif st.session_state.menu == "Proses":
             
             # tombol filter netral
             if st.button("Filter netral (score == 0)"):
-                before_n = len(df_lab)
-                after_df = df_lab[df_lab["score"] != 0].reset_index(drop=True)
+                df_current = st.session_state.pp_labeled.copy()
+                before_n = len(df_current)
+            
+                after_df = df_current[df_current["score"] != 0].reset_index(drop=True)
                 removed = before_n - len(after_df)
             
+                # ✅ hanya ubah versi working
                 st.session_state.pp_labeled = after_df
+            
                 st.success(f"Netral dihapus (untuk proses SVM). Terhapus: {removed} data.")
                 st.rerun()
             
@@ -1143,6 +1155,7 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
 
 
