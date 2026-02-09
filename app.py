@@ -799,7 +799,7 @@ elif st.session_state.menu == "Proses":
                 if st.session_state.pp_stem is not None:
                     show_preview(st.session_state.pp_stem, "Hasil Stemming", n=20)
                     # ✅ KETERANGAN JUMLAH DATA
-                     show_processed_count(base_df, st.session_state.pp_labeled, title="Keterangan Jumlah Data (Tahap per tahap)")
+                    show_processed_count(base_df, st.session_state.pp_labeled, title="Keterangan Jumlah Data (Tahap per tahap)")
 
             # 6) Tokenizing (butuh Stemming)
             with st.expander("6) Tokenizing", expanded=False):
@@ -1142,4 +1142,5 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
