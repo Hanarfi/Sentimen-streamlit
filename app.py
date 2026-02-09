@@ -697,6 +697,17 @@ elif st.session_state.menu == "Proses":
                     st.session_state.pp_filterlex = step_filterlex(st.session_state.pp_stem); progress.progress(90); time.sleep(0.05)
                     st.session_state.pp_labeled = step_labeling(st.session_state.pp_filterlex); progress.progress(100)
                 st.success("Preprocessing + labeling selesai.")
+                # ✅ Tambahkan ini: tampilkan preview hasil preprocessing
+                st.markdown("---")
+                st.subheader("Preview Hasil Preprocessing (Otomatis)")
+                
+                df_prev = st.session_state.pp_labeled
+                if df_prev is not None and not df_prev.empty:
+                    # kolom yang mau ditampilkan (kalau ada)
+                    cols_show = [c for c in ["content", "content_list", "score", "Sentimen"] if c in df_prev.columns]
+                    st.dataframe(df_prev[cols_show].head(30), use_container_width=True)
+                else:
+                    st.info("Hasil preprocessing belum tersedia / kosong.")
 
         # Tahap per tahap
         else:
@@ -731,22 +742,22 @@ elif st.session_state.menu == "Proses":
                     show_preview(st.session_state.pp_normal, "Hasil Normalisasi", n=20)
             
             # 3) Cleaning (butuh Normalisasi)
-            with st.expander("3) Data Cleaning", expanded=False):
-                btn_clean = st.button("Jalankan Cleaning", disabled=st.session_state.pp_normal is None)
+            with st.expander("3) Data Cleansing", expanded=False):
+                btn_clean = st.button("Jalankan Cleansing", disabled=st.session_state.pp_normal is None)
                 if st.session_state.pp_normal is None:
                     st.info("Jalankan **Normalisasi** dulu.")
                 if btn_clean:
                     prev = pick_prev(st.session_state.pp_normal, base_df)
-                    with st.spinner("Cleaning..."):
+                    with st.spinner("Cleansing..."):
                         st.session_state.pp_clean = step_clean(prev)
                 if st.session_state.pp_clean is not None:
-                    show_preview(st.session_state.pp_clean, "Hasil Data Cleaning", n=20)
+                    show_preview(st.session_state.pp_clean, "Hasil Data Cleansing", n=20)
             
-            # 4) Stopword (butuh Cleaning)
+            # 4) Stopword (butuh Cleansing)
             with st.expander("4) Stopword Removal", expanded=False):
                 btn_stop = st.button("Jalankan Stopword", disabled=st.session_state.pp_clean is None)
                 if st.session_state.pp_clean is None:
-                    st.info("Jalankan **Cleaning** dulu.")
+                    st.info("Jalankan **Cleansing** dulu.")
                 if btn_stop:
                     prev = pick_prev(st.session_state.pp_clean, base_df)
                     with st.spinner("Stopword removal..."):
