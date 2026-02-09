@@ -636,10 +636,10 @@ elif st.session_state.menu == "Proses":
             out["content"] = out["content_list"].apply(lambda toks: " ".join(toks))
             return drop_empty_rows(out)
         def step_labeling(df):
-             out = df.copy()
+            out = df.copy()
             if "content_list" not in out.columns:
                 out["content_list"] = out["content"].astype(str).str.split()
-            
+        
             res = out["content_list"].apply(
                 lambda toks: sentiment_analysis_lexicon_indonesia(toks, st.session_state.lex_pos, st.session_state.lex_neg)
             )
@@ -647,6 +647,7 @@ elif st.session_state.menu == "Proses":
             out["score"] = res[0]
             out["Sentimen"] = res[1]
             return out
+
 
         # pilihan mode di MENU PROSES (bukan sidebar)
         mode_proses = st.radio(
@@ -793,7 +794,7 @@ elif st.session_state.menu == "Proses":
                 if st.session_state.pp_filterlex is not None:
                     show_preview(st.session_state.pp_filterlex, "Hasil Filter Lexicon", n=20)
                         
-           # 8) Labeling (butuh Filter Lexicon)
+            # 8) Labeling (butuh Filter Lexicon)
             with st.expander("8) Labeling Lexicon", expanded=False):
                 btn_lab = st.button("Jalankan Labeling", disabled=st.session_state.pp_filterlex is None)
                 if st.session_state.pp_filterlex is None:
@@ -1030,6 +1031,7 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
 
 
