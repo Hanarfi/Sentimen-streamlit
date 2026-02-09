@@ -1003,6 +1003,28 @@ elif st.session_state.menu == "Klasifikasi SVM":
                 if st.session_state.report is not None and st.session_state.cm is not None:
                     st.markdown("---")
                     st.subheader("Ringkasan Hasil (Summary Cards)")
+                    
+                    acc = accuracy_score(st.session_state.y_test, st.session_state.y_pred)
+
+                    y_pred_series = pd.Series(st.session_state.y_pred)
+                    majority = y_pred_series.value_counts().idxmax()
+                    maj_pct = y_pred_series.value_counts(normalize=True).max() * 100
+
+                    m1, m2, m3 = st.columns(3)
+                    m1.metric("Accuracy (Test)", f"{acc:.4f}")
+                    m2.metric("Mayoritas Prediksi (Test)", f"{majority}")
+                    m3.metric("Proporsi Mayoritas", f"{maj_pct:.1f}%")
+
+                    st.subheader("Classification Report")
+                    st.code(st.session_state.report)
+
+                    st.subheader("Confusion Matrix")
+                    plot_confusion(st.session_state.cm, labels=("negatif", "positif"), title="Confusion Matrix SVM")
+                    st.info(biggest_confusion_insight(st.session_state.cm, labels=("negatif", "positif")))
+
+                    st.subheader("Distribusi Prediksi (Data Uji)")
+                    plot_bar_counts(pd.Series(st.session_state.y_pred), "Distribusi Prediksi (Test)")
+
                     # =========================================================
                     # KESIMPULAN OTOMATIS BERDASARKAN HASIL SVM
                     # =========================================================
@@ -1055,26 +1077,6 @@ elif st.session_state.menu == "Klasifikasi SVM":
                             "Model menunjukkan performa yang sangat baik dan hasil klasifikasi dapat dipercaya."
                         )
 
-                    acc = accuracy_score(st.session_state.y_test, st.session_state.y_pred)
-
-                    y_pred_series = pd.Series(st.session_state.y_pred)
-                    majority = y_pred_series.value_counts().idxmax()
-                    maj_pct = y_pred_series.value_counts(normalize=True).max() * 100
-
-                    m1, m2, m3 = st.columns(3)
-                    m1.metric("Accuracy (Test)", f"{acc:.4f}")
-                    m2.metric("Mayoritas Prediksi (Test)", f"{majority}")
-                    m3.metric("Proporsi Mayoritas", f"{maj_pct:.1f}%")
-
-                    st.subheader("Classification Report")
-                    st.code(st.session_state.report)
-
-                    st.subheader("Confusion Matrix")
-                    plot_confusion(st.session_state.cm, labels=("negatif", "positif"), title="Confusion Matrix SVM")
-                    st.info(biggest_confusion_insight(st.session_state.cm, labels=("negatif", "positif")))
-
-                    st.subheader("Distribusi Prediksi (Data Uji)")
-                    plot_bar_counts(pd.Series(st.session_state.y_pred), "Distribusi Prediksi (Test)")
 
                 # Downloads + save model
                 st.markdown("---")
@@ -1105,6 +1107,7 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
 
 
