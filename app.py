@@ -206,7 +206,7 @@ def stem_text(text: str) -> str:
     stemmer = get_sastrawi_stemmer()
     return stemmer.stem(str(text))
 
-def filter_words_by_lexicon(df):
+def step_filterlex(df):
     out = df.copy()
 
     # pastikan sudah tokenizing
@@ -1218,6 +1218,7 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
 
 
