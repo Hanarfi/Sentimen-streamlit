@@ -51,6 +51,27 @@ def inject_academic_dark():
                 border-color: rgba(255,255,255,0.20);
                 filter: brightness(1.05);
             }
+            /* Segmented toggle buttons */
+            .seg-wrap { display: flex; gap: 10px; margin: 6px 0 10px 0; }
+            .seg-btn button {
+                width: 100%;
+                background: rgba(255,255,255,0.03);
+                color: #E5E7EB;
+                border: 1px solid rgba(255,255,255,0.10);
+                border-radius: 14px;
+                padding: 0.65rem 0.9rem;
+                font-weight: 750;
+            }
+            .seg-btn button:hover {
+                border-color: rgba(255,255,255,0.25);
+                filter: brightness(1.08);
+            }
+            .seg-active button {
+                background: linear-gradient(180deg, rgba(59,130,246,0.22), rgba(59,130,246,0.10));
+                border: 1px solid rgba(59,130,246,0.45);
+                box-shadow: 0 0 0 1px rgba(59,130,246,0.15) inset;
+            }
+            .seg-sub { color: rgba(229,231,235,0.65); font-size: 0.92rem; margin-top: -2px; }
 
             .stDownloadButton>button {
                 background: #111827;
@@ -298,6 +319,8 @@ def make_model_bundle(tfidf: TfidfVectorizer, svm: SVC):
 def init_state():
     defaults = {
         "menu": "Home",
+
+        "mode_proses": "auto",  # "auto" atau "step"
 
         "raw_df": None,
         "df_work": None,
@@ -663,13 +686,33 @@ elif st.session_state.menu == "Proses":
 
 
         # pilihan mode di MENU PROSES (bukan sidebar)
-        mode_proses = st.radio(
-            "Pilih cara menjalankan preprocessing:",
-            ["Otomatis (run all)", "Tahap per tahap"],
-            horizontal=True
-        )
-
+        st.markdown("### Pilih cara menjalankan preprocessing")
+        st.markdown("<div class='seg-sub'>Pilih mode kerja: otomatis sekali jalan atau tahap per tahap.</div>", unsafe_allow_html=True)
+        
+        # pastikan ada default
+        if "mode_proses" not in st.session_state or st.session_state.mode_proses is None:
+            st.session_state.mode_proses = "auto"
+        
+        c1, c2 = st.columns(2)
+        
+        with c1:
+            active_class = "seg-btn seg-active" if st.session_state.mode_proses == "auto" else "seg-btn"
+            st.markdown(f"<div class='{active_class}'>", unsafe_allow_html=True)
+            if st.button("⚡ Otomatis (run all)", use_container_width=True, key="btn_mode_auto"):
+                st.session_state.mode_proses = "auto"
+                st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
+        
+        with c2:
+            active_class = "seg-btn seg-active" if st.session_state.mode_proses == "step" else "seg-btn"
+            st.markdown(f"<div class='{active_class}'>", unsafe_allow_html=True)
+            if st.button("🧩 Tahap per tahap", use_container_width=True, key="btn_mode_step"):
+                st.session_state.mode_proses = "step"
+                st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
+        
         st.markdown("---")
+
 
          #Reset Proses
         st.markdown("### Reset Proses")
@@ -698,7 +741,7 @@ elif st.session_state.menu == "Proses":
         st.markdown("---")
         
         # Tombol Otomatis
-        if mode_proses == "Otomatis (run all)":
+        if st.session_state.mode_proses == "auto":
             if st.button("▶️ Jalankan preprocessing (otomatis)"):
                 progress = st.progress(0)
                 with st.spinner("Menjalankan preprocessing..."):
@@ -1156,6 +1199,7 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
 
 
