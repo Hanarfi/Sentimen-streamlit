@@ -722,10 +722,11 @@ elif st.session_state.menu == "Proses":
                 st.subheader("Preview Hasil Preprocessing (Otomatis)")
         
                 df_prev = st.session_state.pp_labeled
+                show_processed_count(base_df, df_prev, title="Keterangan Jumlah Data (Preprocessing Otomatis)")
                 cols_show = [c for c in ["content", "content_list", "score", "Sentimen"] if c in df_prev.columns]
                 st.dataframe(df_prev[cols_show].head(30), use_container_width=True)
 
-                show_processed_count(base_df, df_prev, title="Keterangan Jumlah Data (Preprocessing Otomatis)")
+                
                 if df_prev is not None and not df_prev.empty:
                     # kolom yang mau ditampilkan (kalau ada)
                     cols_show = [c for c in ["content", "content_list", "score", "Sentimen"] if c in df_prev.columns]
@@ -1163,6 +1164,7 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
 
 
