@@ -922,7 +922,7 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         X_text = df["content_list"].apply(lambda x: " ".join(x) if isinstance(x, list) else str(x))
                         progress.progress(30)
 
-                        tfidf = TfidfVectorizer()
+                        tfidf = TfidfVectorizer(smooth_idf=False)
                         X_tfidf = tfidf.fit_transform(X_text).toarray()
 
                         progress.progress(90)
@@ -1107,6 +1107,7 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
 
 
