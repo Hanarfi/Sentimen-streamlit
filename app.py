@@ -206,28 +206,18 @@ def stem_text(text: str) -> str:
     stemmer = get_sastrawi_stemmer()
     return stemmer.stem(str(text))
 
-def step_filterlex(df):
-    out = df.copy()
+def filter_tokens_by_lexicon(tokens, lex_pos: dict, lex_neg: dict):
+    """
+    Filter token berdasarkan lexicon positif & negatif
+    """
+    filtered_words = []
 
-    # pastikan sudah tokenizing
-    if "content_list" not in out.columns:
-        out["content_list"] = out["content"].astype(str).str.split()
+    if isinstance(tokens, list):
+        for word in tokens:
+            if word in lex_pos or word in lex_neg:
+                filtered_words.append(word)
 
-    # 🔁 FILTER TOKEN (adaptasi langsung dari kode lama)
-    out["content_list"] = out["content_list"].apply(
-        lambda word_list: filter_tokens_by_lexicon(
-            word_list,
-            st.session_state.lex_pos,
-            st.session_state.lex_neg
-        )
-    )
-
-    # gabungkan kembali ke string
-    out["content"] = out["content_list"].apply(
-        lambda x: " ".join(x) if isinstance(x, list) else ""
-    )
-
-    return drop_empty_rows(out)
+    return filtered_words
 
 
 # =========================================================
@@ -1218,6 +1208,7 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
 
 
