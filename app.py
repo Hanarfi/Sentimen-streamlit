@@ -1003,6 +1003,58 @@ elif st.session_state.menu == "Klasifikasi SVM":
                 if st.session_state.report is not None and st.session_state.cm is not None:
                     st.markdown("---")
                     st.subheader("Ringkasan Hasil (Summary Cards)")
+                    # =========================================================
+                    # KESIMPULAN OTOMATIS BERDASARKAN HASIL SVM
+                    # =========================================================
+                    st.markdown("---")
+                    st.subheader("Kesimpulan Hasil Klasifikasi Sentimen")
+                    
+                    # ambil data uji & prediksi
+                    y_test = st.session_state.y_test
+                    y_pred = pd.Series(st.session_state.y_pred)
+                    
+                    total_test = len(y_test)
+                    dist = y_pred.value_counts()
+                    dist_pct = y_pred.value_counts(normalize=True) * 100
+                    
+                    acc = accuracy_score(y_test, st.session_state.y_pred)
+                    
+                    # tentukan sentimen dominan
+                    dominant_sentiment = dist.idxmax()
+                    dominant_pct = dist_pct.max()
+                    
+                    # narasi kesimpulan
+                    if dominant_sentiment == "positif":
+                        trend_sentence = "cenderung memberikan sentimen **positif** terhadap aplikasi yang dianalisis."
+                    else:
+                        trend_sentence = "cenderung memberikan sentimen **negatif** terhadap aplikasi yang dianalisis."
+                    
+                    st.markdown(
+                        f"""
+                    Berdasarkan hasil klasifikasi menggunakan metode **Support Vector Machine (SVM)** terhadap 
+                    **{total_test} data uji**, diperoleh bahwa sentimen pengguna yang paling dominan adalah 
+                    **{dominant_sentiment}** dengan proporsi sebesar **{dominant_pct:.1f}%** dari total data uji.
+                    
+                    Model SVM yang digunakan pada penelitian ini menghasilkan nilai **akurasi sebesar {acc:.4f}**, 
+                    yang menunjukkan bahwa model memiliki kemampuan yang **cukup baik** dalam mengklasifikasikan 
+                    sentimen ulasan pengguna ke dalam kelas positif dan negatif.
+                    
+                    Secara umum, hasil ini menunjukkan bahwa pengguna {trend_sentence}
+                    """
+                    )
+                    
+                    # catatan tambahan jika akurasi rendah
+                    if acc < 0.6:
+                        st.warning(
+                            "Catatan: Nilai akurasi model relatif rendah. "
+                            "Disarankan untuk menambah jumlah data latih, "
+                            "melakukan tuning parameter, atau memperkaya proses preprocessing."
+                        )
+                    elif acc >= 0.8:
+                        st.success(
+                            "Model menunjukkan performa yang sangat baik dan hasil klasifikasi dapat dipercaya."
+                        )
+
                     acc = accuracy_score(st.session_state.y_test, st.session_state.y_pred)
 
                     y_pred_series = pd.Series(st.session_state.y_pred)
@@ -1053,6 +1105,7 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
 
 
