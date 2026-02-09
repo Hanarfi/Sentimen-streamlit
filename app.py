@@ -922,7 +922,7 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         X_text = df["content_list"].apply(lambda x: " ".join(x) if isinstance(x, list) else str(x))
                         progress.progress(30)
 
-                        tfidf = TfidfVectorizer(smooth_idf=False)
+                        tfidf = TfidfVectorizer()
                         X_tfidf = tfidf.fit_transform(X_text).toarray()
 
                         progress.progress(90)
