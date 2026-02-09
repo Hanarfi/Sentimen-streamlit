@@ -725,8 +725,7 @@ elif st.session_state.menu == "Proses":
                 
                 cols_show = [c for c in ["content", "content_list", "score", "Sentimen"] if c in df_prev.columns]
                 st.dataframe(df_prev[cols_show].head(30), use_container_width=True)
-                show_processed_count(base_df, df_prev, title="Keterangan Jumlah Data (Preprocessing Otomatis)")
-
+                
         # Tahap per tahap
         else:
             # helper aman untuk pilih prev dataframe
@@ -1157,6 +1156,7 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
 
 
