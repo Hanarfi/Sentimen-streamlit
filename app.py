@@ -707,16 +707,24 @@ elif st.session_state.menu == "Proses":
                     st.session_state.pp_clean = step_clean(st.session_state.pp_normal); progress.progress(45); time.sleep(0.05)
                     st.session_state.pp_stop = step_stopword(st.session_state.pp_clean); progress.progress(60); time.sleep(0.05)
                     st.session_state.pp_stem = step_stemming(st.session_state.pp_stop); progress.progress(75); time.sleep(0.05)
-                    st.session_state.pp_filterlex = step_filterlex(st.session_state.pp_stem); progress.progress(80); time.sleep(0.05)
-                    st.session_state.pp_labeled = step_labeling(st.session_state.pp_filterlex); progress.progress(90); time.sleep(0.05)
-                    st.session_state.pp_labeled_raw = st.session_state.pp_labeled.copy(); progress.progress(100); time.sleep(0.05)
+                    st.session_state.pp_filterlex = step_filterlex(st.session_state.pp_stem); progress.progress(90); time.sleep(0.05)
+                    st.session_state.pp_labeled = step_labeling(st.session_state.pp_filterlex); progress.progress(100)
+        
+                # ✅ simpan raw (supaya metrik Labeling tidak berubah saat filter netral)
+                st.session_state.pp_labeled_raw = st.session_state.pp_labeled.copy()
+        
                 st.success("Preprocessing + labeling selesai.")
-                # ✅ Tambahkan ini: tampilkan preview hasil preprocessing
+                st.rerun()  # ✅ optional tapi bagus supaya UI langsung render state terbaru
+        
+            # ✅ PREVIEW DIPINDAHKAN KE LUAR BLOK TOMBOL (biar tetap muncul setelah rerun / filter netral)
+            if st.session_state.pp_labeled is not None:
                 st.markdown("---")
                 st.subheader("Preview Hasil Preprocessing (Otomatis)")
-
-                
+        
                 df_prev = st.session_state.pp_labeled
+                cols_show = [c for c in ["content", "content_list", "score", "Sentimen"] if c in df_prev.columns]
+                st.dataframe(df_prev[cols_show].head(30), use_container_width=True)
+
                 show_processed_count(base_df, df_prev, title="Keterangan Jumlah Data (Preprocessing Otomatis)")
                 if df_prev is not None and not df_prev.empty:
                     # kolom yang mau ditampilkan (kalau ada)
@@ -1155,6 +1163,7 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
 
 
