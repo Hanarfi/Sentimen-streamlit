@@ -700,6 +700,8 @@ elif st.session_state.menu == "Proses":
                 # ✅ Tambahkan ini: tampilkan preview hasil preprocessing
                 st.markdown("---")
                 st.subheader("Preview Hasil Preprocessing (Otomatis)")
+                total_data = len(df_prev)
+                st.markdown(f"**Total data hasil preprocessing:** {total_data} ulasan")
                 
                 df_prev = st.session_state.pp_labeled
                 if df_prev is not None and not df_prev.empty:
@@ -727,7 +729,10 @@ elif st.session_state.menu == "Proses":
                     with st.spinner("Case folding..."):
                         st.session_state.pp_casefold = step_casefold(base_df)
                 if st.session_state.pp_casefold is not None:
-                    show_preview(st.session_state.pp_casefold, "Hasil Case Folding", n=20)
+                    df_tmp = st.session_state.pp_casefold
+                    st.markdown(f"**Total data:** {len(df_tmp)} ulasan")
+                    show_preview(df_tmp, "Hasil Case Folding", n=20)
+
             
             # 2) Normalisasi (butuh Case Folding)
             with st.expander("2) Normalisasi Kamus", expanded=False):
@@ -1107,6 +1112,7 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
 
 
