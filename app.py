@@ -702,6 +702,7 @@ elif st.session_state.menu == "Proses":
                 st.subheader("Preview Hasil Preprocessing (Otomatis)")
                 total_data = len(df_prev)
                 st.markdown(f"**Total data hasil preprocessing:** {total_data} ulasan")
+                st.dataframe(df_prev.head(30), use_container_width=True)
                 
                 df_prev = st.session_state.pp_labeled
                 if df_prev is not None and not df_prev.empty:
@@ -1112,6 +1113,7 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
 
 
