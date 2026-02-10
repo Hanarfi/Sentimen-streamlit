@@ -132,41 +132,17 @@ def load_kamus_repo(path: str) -> dict:
     df = pd.read_excel(path)
     return dict(zip(df["non_standard"], df["standard_word"]))
 
+
 @st.cache_resource
 def load_lexicon_repo(path: str) -> dict:
-    """
-    Robust lexicon loader:
-    - skip header jika ada
-    - lower() word
-    - nilai non-int di-skip
-    """
     lex = {}
-    with open(path, "r", newline="", encoding="utf-8", errors="ignore") as csvfile:
-        reader = csv.reader(csvfile, delimiter=",")
-        first = next(reader, None)
-        # Coba deteksi header (kalau baris pertama bukan angka di kolom 2)
-        if first and len(first) >= 2:
-            w = str(first[1]).strip()
-            try:
-                int(w)
-                # baris pertama valid data → proses juga
-                word = str(first[0]).strip().lower()
-                if word:
-                    lex[word] = int(w)
-            except ValueError:
-                # anggap header → skip
-                pass
-
+    with open(path, "r", encoding="utf-8-sig", newline="") as f:
+        reader = csv.reader(f)
+        next(reader)  # FIX: selalu skip header (baris pertama)
         for row in reader:
-            if len(row) >= 2:
-                word = str(row[0]).strip().lower()
-                w = str(row[1]).strip()
-                if not word:
-                    continue
-                try:
-                    lex[word] = int(w)
-                except ValueError:
-                    continue
+            word = row[0].strip().lower()
+            weight = int(row[1].strip())  # FIX: harus angka, kalau tidak -> error (fail fast)
+            lex[word] = weight
     return lex
 
 
@@ -296,19 +272,10 @@ def show_preview(df: pd.DataFrame, title: str, n=20):
     st.dataframe(df.head(n), use_container_width=True)
 
 def ensure_list(x):
-    """Versi Colab: handle list asli, string list "['a','b']", atau string biasa."""
+    # versi sederhana: kalau bukan list => split string biasa
     if isinstance(x, list):
         return x
-    if pd.isna(x):
-        return []
-    if isinstance(x, str):
-        s = x.strip()
-        try:
-            v = ast.literal_eval(s)  # handle "['kata','kata']"
-            return v if isinstance(v, list) else str(x).split()
-        except Exception:
-            return str(x).split()
-    return []
+    return str(x).split()
 
 
 
@@ -433,13 +400,13 @@ init_state()
 st.set_page_config(page_title="Analisis Sentimen (TF-IDF + SVM)", layout="wide")
 inject_academic_dark()
 
-# load resources
+# load resources (fail fast)
 if st.session_state.kamus is None or st.session_state.lex_pos is None or st.session_state.lex_neg is None:
-    kamus, lex_pos, lex_neg, errs = safe_load_resources()
-    st.session_state.kamus = kamus
-    st.session_state.lex_pos = lex_pos
-    st.session_state.lex_neg = lex_neg
-    st.session_state.res_errors = errs
+    st.session_state.kamus = load_kamus_repo(KAMUS_PATH)
+    st.session_state.lex_pos = load_lexicon_repo(LEX_POS_PATH)
+    st.session_state.lex_neg = load_lexicon_repo(LEX_NEG_PATH)
+    st.session_state.res_errors = []
+
 
 # ✅ lexicon gabungan (atasi overlap pos-neg) + pisah phrase/single
 if not st.session_state.res_errors and st.session_state.lex_pos is not None and st.session_state.lex_neg is not None:
@@ -742,32 +709,7 @@ elif st.session_state.menu == "Proses":
             out = df.copy(); out["content"] = out["content"].apply(stem_text); return drop_empty_rows(out)
         def step_tokenizing(df):
             out = df.copy()
-        
-            def _ensure_list(x):
-                if isinstance(x, list):
-                    return x
-                if pd.isna(x):
-                    return []
-                s = str(x).strip()
-                if s.startswith("[") and s.endswith("]"):
-                    s2 = s[1:-1].strip()
-                    if not s2:
-                        return []
-                    parts = [p.strip().strip("'").strip('"') for p in s2.split(",")]
-                    return [p for p in parts if p]
-                return s.split()
-        
-            # kalau content_list sudah ada, amankan; kalau belum, buat dari content
-            if "content_list" in out.columns:
-                out["content_list"] = out["content_list"].apply(_ensure_list)
-            else:
-                out["content_list"] = out["content"].fillna("").astype(str).str.split()
-        
-            # Pastikan lower + strip + buang token kosong
-            out["content_list"] = out["content_list"].apply(
-                lambda toks: [str(t).strip().lower() for t in (toks or []) if str(t).strip()]
-            )
-        
+            out["content_list"] = out["content"].fillna("").astype(str).str.lower().str.split()
             return out
         def step_filterlex(df):
             out = df.copy()
@@ -1373,4 +1315,5 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
