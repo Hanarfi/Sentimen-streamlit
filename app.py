@@ -756,55 +756,55 @@ elif st.session_state.menu == "Proses":
         
             return out
             
-           def step_filterlex(df):
-                out = df.copy()
+    def step_filterlex(df):
+         out = df.copy()
             
-                # pastikan content_list ada
-                if "content_list" not in out.columns:
-                    out = step_tokenizing(out)
+        # pastikan content_list ada
+        if "content_list" not in out.columns:
+            out = step_tokenizing(out)
             
-                out["content_list"] = out["content_list"].apply(ensure_list)
+        out["content_list"] = out["content_list"].apply(ensure_list)
             
-                lex_pos = st.session_state.lex_pos or {}
-                lex_neg = st.session_state.lex_neg or {}
+        lex_pos = st.session_state.lex_pos or {}
+        lex_neg = st.session_state.lex_neg or {}
             
-                out["filtered_tokens"] = out["content_list"].apply(
-                    lambda toks: filter_tokens_by_lexicon(toks, lex_pos, lex_neg)
-                )
-                out["filtered_text"] = out["filtered_tokens"].apply(lambda toks: " ".join(toks))
+        out["filtered_tokens"] = out["content_list"].apply(
+            lambda toks: filter_tokens_by_lexicon(toks, lex_pos, lex_neg)
+        )
+        out["filtered_text"] = out["filtered_tokens"].apply(lambda toks: " ".join(toks))
             
-                # ✅ TF-IDF pakai filtered_text
-                out["content_list"] = out["filtered_tokens"]
-                out["content"] = out["filtered_text"]
+        # ✅ TF-IDF pakai filtered_text
+        out["content_list"] = out["filtered_tokens"]
+        out["content"] = out["filtered_text"]
             
-                # drop kosong setelah filtering
-                out["content"] = out["content"].fillna("").astype(str)
-                out = out[out["content"].str.strip() != ""].reset_index(drop=True)
+        # drop kosong setelah filtering
+        out["content"] = out["content"].fillna("").astype(str)
+        out = out[out["content"].str.strip() != ""].reset_index(drop=True)
             
-                return out
+        return out
             
-            def step_labeling(df):
-                out = df.copy()
+    def step_labeling(df):
+        out = df.copy()
             
-                lex_pos = st.session_state.lex_pos or {}
-                lex_neg = st.session_state.lex_neg or {}
+        lex_pos = st.session_state.lex_pos or {}
+        lex_neg = st.session_state.lex_neg or {}
             
-                if "filtered_tokens" in out.columns:
-                    out["filtered_tokens"] = out["filtered_tokens"].apply(ensure_list)
-                    tokens_col = "filtered_tokens"
-                else:
-                    if "content_list" not in out.columns:
-                        out = step_tokenizing(out)
-                    out["content_list"] = out["content_list"].apply(ensure_list)
-                    tokens_col = "content_list"
+        if "filtered_tokens" in out.columns:
+            out["filtered_tokens"] = out["filtered_tokens"].apply(ensure_list)
+            tokens_col = "filtered_tokens"
+        else:
+            if "content_list" not in out.columns:
+                out = step_tokenizing(out)
+            out["content_list"] = out["content_list"].apply(ensure_list)
+            tokens_col = "content_list"
             
-                scores_sents = out[tokens_col].apply(
-                    lambda toks: sentiment_analysis_lexicon_indonesia(toks, lex_pos, lex_neg)
-                )
-                out["score"] = scores_sents.apply(lambda x: x[0])
-                out["Sentimen"] = scores_sents.apply(lambda x: x[1])
+        scores_sents = out[tokens_col].apply(
+            lambda toks: sentiment_analysis_lexicon_indonesia(toks, lex_pos, lex_neg)
+        )
+        out["score"] = scores_sents.apply(lambda x: x[0])
+        out["Sentimen"] = scores_sents.apply(lambda x: x[1])
             
-                return out
+        return out
 
 
 
@@ -1323,6 +1323,7 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
 
 
