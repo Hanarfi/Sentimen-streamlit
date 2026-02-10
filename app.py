@@ -133,16 +133,41 @@ def load_kamus_repo(path: str) -> dict:
 
 @st.cache_resource
 def load_lexicon_repo(path: str) -> dict:
+    """
+    Robust lexicon loader:
+    - skip header jika ada
+    - lower() word
+    - nilai non-int di-skip
+    """
     lex = {}
-    with open(path, "r", encoding="utf-8", errors="ignore") as f:
-        reader = csv.reader(f, delimiter=",")
+    with open(path, "r", newline="", encoding="utf-8", errors="ignore") as csvfile:
+        reader = csv.reader(csvfile, delimiter=",")
+        first = next(reader, None)
+        # Coba deteksi header (kalau baris pertama bukan angka di kolom 2)
+        if first and len(first) >= 2:
+            w = str(first[1]).strip()
+            try:
+                int(w)
+                # baris pertama valid data → proses juga
+                word = str(first[0]).strip().lower()
+                if word:
+                    lex[word] = int(w)
+            except ValueError:
+                # anggap header → skip
+                pass
+
         for row in reader:
             if len(row) >= 2:
+                word = str(row[0]).strip().lower()
+                w = str(row[1]).strip()
+                if not word:
+                    continue
                 try:
-                    lex[row[0]] = int(row[1])
-                except:
-                    pass
+                    lex[word] = int(w)
+                except ValueError:
+                    continue
     return lex
+
 
 def safe_load_resources():
     errors = []
@@ -223,22 +248,37 @@ def filter_tokens_by_lexicon(tokens, lex_pos: dict, lex_neg: dict):
 # =========================================================
 # Labeling lexicon
 # =========================================================
-def sentiment_analysis_lexicon_indonesia(tokens, lex_pos: dict, lex_neg: dict):
+def sentiment_analysis_lexicon_indonesia(tokens):
     score = 0
-    for w in tokens:
-        if w in lex_pos:
-            score += lex_pos[w]
-    for w in tokens:
-        if w in lex_neg:
-            score += lex_neg[w]
+
+    lex_single = st.session_state.get("lexicon_single", {}) or {}
+    lex_phrase = st.session_state.get("lexicon_phrase", {}) or {}
+
+    # 5a) score single-word tokens
+    for w in tokens or []:
+        score += lex_single.get(w, 0)
+
+    # 5b) score phrase (bigram/trigram) ringan
+    if lex_phrase and tokens:
+        for i in range(len(tokens) - 1):
+            bigram = tokens[i] + " " + tokens[i + 1]
+            if bigram in lex_phrase:
+                score += lex_phrase[bigram]
+
+        for i in range(len(tokens) - 2):
+            trigram = tokens[i] + " " + tokens[i + 1] + " " + tokens[i + 2]
+            if trigram in lex_phrase:
+                score += lex_phrase[trigram]
 
     if score > 0:
-        sent = "positif"
+        sentimen = "positif"
     elif score < 0:
-        sent = "negatif"
+        sentimen = "negatif"
     else:
-        sent = "netral"
-    return score, sent
+        sentimen = "netral"
+
+    return score, sentimen
+
 
 
 # =========================================================
@@ -382,6 +422,22 @@ if st.session_state.kamus is None or st.session_state.lex_pos is None or st.sess
     st.session_state.lex_pos = lex_pos
     st.session_state.lex_neg = lex_neg
     st.session_state.res_errors = errs
+
+# ✅ lexicon gabungan (atasi overlap pos-neg) + pisah phrase/single
+if not st.session_state.res_errors and st.session_state.lex_pos is not None and st.session_state.lex_neg is not None:
+    from collections import defaultdict
+
+    lex_all = defaultdict(int)
+    for k, v in st.session_state.lex_pos.items():
+        lex_all[str(k).strip().lower()] += int(v)
+    for k, v in st.session_state.lex_neg.items():
+        lex_all[str(k).strip().lower()] += int(v)
+
+    lex_all = dict(lex_all)
+    st.session_state.lexicon_all = lex_all
+    st.session_state.lexicon_phrase = {k: v for k, v in lex_all.items() if " " in k}
+    st.session_state.lexicon_single = {k: v for k, v in lex_all.items() if " " not in k}
+
 
 
 # =========================================================
@@ -668,30 +724,73 @@ elif st.session_state.menu == "Proses":
             out = df.copy(); out["content"] = out["content"].apply(stem_text); return drop_empty_rows(out)
         def step_tokenizing(df):
             out = df.copy()
-            out["content_list"] = out["content"].astype(str).str.split()
+        
+            def _ensure_list(x):
+                if isinstance(x, list):
+                    return x
+                if pd.isna(x):
+                    return []
+                s = str(x).strip()
+                if s.startswith("[") and s.endswith("]"):
+                    s2 = s[1:-1].strip()
+                    if not s2:
+                        return []
+                    parts = [p.strip().strip("'").strip('"') for p in s2.split(",")]
+                    return [p for p in parts if p]
+                return s.split()
+        
+            # kalau content_list sudah ada, amankan; kalau belum, buat dari content
+            if "content_list" in out.columns:
+                out["content_list"] = out["content_list"].apply(_ensure_list)
+            else:
+                out["content_list"] = out["content"].fillna("").astype(str).str.split()
+        
+            # Pastikan lower + strip + buang token kosong
+            out["content_list"] = out["content_list"].apply(
+                lambda toks: [str(t).strip().lower() for t in (toks or []) if str(t).strip()]
+            )
+        
             return out
         def step_filterlex(df):
             out = df.copy()
-            if "content_list" not in out.columns:
-                out["content_list"] = out["content"].astype(str).str.split()
         
-            out["content_list"] = out["content_list"].apply(
-                lambda toks: filter_tokens_by_lexicon(toks, st.session_state.lex_pos, st.session_state.lex_neg)
-            )
-            out["content"] = out["content_list"].apply(lambda toks: " ".join(toks))
+            if "content_list" not in out.columns:
+                # pastikan tokenizing dulu
+                out = step_tokenizing(out)
+        
+            lex_single = st.session_state.get("lexicon_single", None)
+            if lex_single is None:
+                # fallback: gabung pos+neg sederhana
+                lex_single = {**st.session_state.lex_pos, **st.session_state.lex_neg}
+        
+            def filter_words_by_lexicon(word_list):
+                if not isinstance(word_list, list):
+                    return []
+                return [w for w in word_list if w in lex_single]
+        
+            out["content_list"] = out["content_list"].apply(filter_words_by_lexicon)
+        
+            # gabungkan kembali ke content string
+            out["content"] = out["content_list"].apply(lambda x: " ".join(x) if isinstance(x, list) else "")
+        
+            # drop NaN & list kosong (sesuai script)
+            out = out.dropna(subset=["content"])
+            out = out[out["content_list"].apply(lambda x: isinstance(x, list) and len(x) > 0)].reset_index(drop=True)
+        
+            return out
+
             return drop_empty_rows(out)
         def step_labeling(df):
             out = df.copy()
             if "content_list" not in out.columns:
-                out["content_list"] = out["content"].astype(str).str.split()
+                out = step_tokenizing(out)
         
-            res = out["content_list"].apply(
-                lambda toks: sentiment_analysis_lexicon_indonesia(toks, st.session_state.lex_pos, st.session_state.lex_neg)
-            )
-            res = list(zip(*res))
-            out["score"] = res[0]
-            out["Sentimen"] = res[1]
+            results = out["content_list"].apply(sentiment_analysis_lexicon_indonesia)
+            out["score"] = results.apply(lambda x: x[0])
+            out["Sentimen"] = results.apply(lambda x: x[1])
+        
             return out
+
 
 
         # pilihan mode di MENU PROSES (bukan sidebar)
@@ -1208,6 +1307,7 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
 
 
