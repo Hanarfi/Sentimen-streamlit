@@ -7,8 +7,6 @@ import io
 import csv
 import pickle
 import time
-import ast
-
 
 from google_play_scraper import reviews, Sort
 
@@ -250,38 +248,36 @@ def filter_tokens_by_lexicon(tokens, lex_pos: dict, lex_neg: dict):
 # =========================================================
 # Labeling lexicon
 # =========================================================
-def sentiment_analysis_lexicon_indonesia(tokens, lex_pos: dict, lex_neg: dict):
+def sentiment_analysis_lexicon_indonesia(tokens):
     score = 0
 
-    for w in tokens:
-        if w in lex_pos:
-            score += lex_pos[w]
+    lex_single = st.session_state.get("lexicon_single", {}) or {}
+    lex_phrase = st.session_state.get("lexicon_phrase", {}) or {}
 
-    for w in tokens:
-        if w in lex_neg:
-            score += lex_neg[w]
+    # 5a) score single-word tokens
+    for w in tokens or []:
+        score += lex_single.get(w, 0)
+
+    # 5b) score phrase (bigram/trigram) ringan
+    if lex_phrase and tokens:
+        for i in range(len(tokens) - 1):
+            bigram = tokens[i] + " " + tokens[i + 1]
+            if bigram in lex_phrase:
+                score += lex_phrase[bigram]
+
+        for i in range(len(tokens) - 2):
+            trigram = tokens[i] + " " + tokens[i + 1] + " " + tokens[i + 2]
+            if trigram in lex_phrase:
+                score += lex_phrase[trigram]
 
     if score > 0:
-        sent = "positif"
+        sentimen = "positif"
     elif score < 0:
-        sent = "negatif"
+        sentimen = "negatif"
     else:
-        sent = "netral"
+        sentimen = "netral"
 
-    return score, sent
-
-
-def ensure_list(x):
-    if isinstance(x, list):
-        return x
-    if isinstance(x, str):
-        x = x.strip()
-        try:
-            v = ast.literal_eval(x)
-            return v if isinstance(v, list) else str(x).split()
-        except:
-            return str(x).split()
-    return []
+    return score, sentimen
 
 
 
@@ -755,57 +751,45 @@ elif st.session_state.menu == "Proses":
             )
         
             return out
-            
         def step_filterlex(df):
-             out = df.copy()
-                
-            # pastikan content_list ada
-            if "content_list" not in out.columns:
-                out = step_tokenizing(out)
-                
-            out["content_list"] = out["content_list"].apply(ensure_list)
-                
-            lex_pos = st.session_state.lex_pos or {}
-            lex_neg = st.session_state.lex_neg or {}
-                
-            out["filtered_tokens"] = out["content_list"].apply(
-                lambda toks: filter_tokens_by_lexicon(toks, lex_pos, lex_neg)
-            )
-            out["filtered_text"] = out["filtered_tokens"].apply(lambda toks: " ".join(toks))
-                
-            # ✅ TF-IDF pakai filtered_text
-            out["content_list"] = out["filtered_tokens"]
-            out["content"] = out["filtered_text"]
-                
-            # drop kosong setelah filtering
-            out["content"] = out["content"].fillna("").astype(str)
-            out = out[out["content"].str.strip() != ""].reset_index(drop=True)
-                
-            return out
-                
-        def step_labeling(df):
             out = df.copy()
-                
-            lex_pos = st.session_state.lex_pos or {}
-            lex_neg = st.session_state.lex_neg or {}
-                
-            if "filtered_tokens" in out.columns:
-                out["filtered_tokens"] = out["filtered_tokens"].apply(ensure_list)
-                tokens_col = "filtered_tokens"
-            else:
-                if "content_list" not in out.columns:
-                    out = step_tokenizing(out)
-                out["content_list"] = out["content_list"].apply(ensure_list)
-                tokens_col = "content_list"
-                
-            scores_sents = out[tokens_col].apply(
-                lambda toks: sentiment_analysis_lexicon_indonesia(toks, lex_pos, lex_neg)
-            )
-            out["score"] = scores_sents.apply(lambda x: x[0])
-            out["Sentimen"] = scores_sents.apply(lambda x: x[1])
-                
+        
+            if "content_list" not in out.columns:
+                # pastikan tokenizing dulu
+                out = step_tokenizing(out)
+        
+            lex_single = st.session_state.get("lexicon_single", None)
+            if lex_single is None:
+                # fallback: gabung pos+neg sederhana
+                lex_single = {**st.session_state.lex_pos, **st.session_state.lex_neg}
+        
+            def filter_words_by_lexicon(word_list):
+                if not isinstance(word_list, list):
+                    return []
+                return [w for w in word_list if w in lex_single]
+        
+            out["content_list"] = out["content_list"].apply(filter_words_by_lexicon)
+        
+            # gabungkan kembali ke content string
+            out["content"] = out["content_list"].apply(lambda x: " ".join(x) if isinstance(x, list) else "")
+        
+            # drop NaN & list kosong (sesuai script)
+            out = out.dropna(subset=["content"])
+            out = out[out["content_list"].apply(lambda x: isinstance(x, list) and len(x) > 0)].reset_index(drop=True)
+        
             return out
 
+            return drop_empty_rows(out)
+        def step_labeling(df):
+            out = df.copy()
+            if "content_list" not in out.columns:
+                out = step_tokenizing(out)
+        
+            results = out["content_list"].apply(sentiment_analysis_lexicon_indonesia)
+            out["score"] = results.apply(lambda x: x[0])
+            out["Sentimen"] = results.apply(lambda x: x[1])
+        
+            return out
 
 
 
@@ -1323,9 +1307,3 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
-
-
-
-
-
-
