@@ -1,4 +1,4 @@
-
+import ast
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -294,6 +294,23 @@ def drop_empty_rows(df: pd.DataFrame) -> pd.DataFrame:
 def show_preview(df: pd.DataFrame, title: str, n=20):
     st.subheader(title)
     st.dataframe(df.head(n), use_container_width=True)
+
+def ensure_list(x):
+    """Versi Colab: handle list asli, string list "['a','b']", atau string biasa."""
+    if isinstance(x, list):
+        return x
+    if pd.isna(x):
+        return []
+    if isinstance(x, str):
+        s = x.strip()
+        try:
+            v = ast.literal_eval(s)  # handle "['kata','kata']"
+            return v if isinstance(v, list) else str(x).split()
+        except Exception:
+            return str(x).split()
+    return []
+
+
 
 def show_processed_count(df_before: pd.DataFrame, df_after: pd.DataFrame, title="Keterangan Jumlah Data"):
     n_before = 0 if df_before is None else len(df_before)
@@ -755,42 +772,90 @@ elif st.session_state.menu == "Proses":
         def step_filterlex(df):
             out = df.copy()
         
+            # pastikan content_list ada dan benar-benar list
             if "content_list" not in out.columns:
-                # pastikan tokenizing dulu
                 out = step_tokenizing(out)
+            else:
+                out["content_list"] = out["content_list"].apply(ensure_list)
         
-            lex_single = st.session_state.get("lexicon_single", None)
-            if lex_single is None:
-                # fallback: gabung pos+neg sederhana
-                lex_single = {**st.session_state.lex_pos, **st.session_state.lex_neg}
+            # normalisasi token: lower + strip + buang kosong
+            out["content_list"] = out["content_list"].apply(
+                lambda toks: [str(t).strip().lower() for t in (toks or []) if str(t).strip()]
+            )
         
-            def filter_words_by_lexicon(word_list):
-                if not isinstance(word_list, list):
+            lex_pos = st.session_state.lex_pos or {}
+            lex_neg = st.session_state.lex_neg or {}
+        
+            # filter token sesuai Colab: token dipertahankan jika ada di pos atau neg
+            def filter_tokens(tokens):
+                if not isinstance(tokens, list):
                     return []
-                return [w for w in word_list if w in lex_single]
+                return [w for w in tokens if (w in lex_pos) or (w in lex_neg)]
         
-            out["content_list"] = out["content_list"].apply(filter_words_by_lexicon)
+            out["content_list"] = out["content_list"].apply(filter_tokens)
         
-            # gabungkan kembali ke content string
+            # content ikut versi filter (sesuai permintaan kamu)
             out["content"] = out["content_list"].apply(lambda x: " ".join(x) if isinstance(x, list) else "")
         
-            # drop NaN & list kosong (sesuai script)
-            out = out.dropna(subset=["content"])
+            # drop baris yang tokennya habis semua (seperti intent Colab)
             out = out[out["content_list"].apply(lambda x: isinstance(x, list) and len(x) > 0)].reset_index(drop=True)
         
             return out
 
-            return drop_empty_rows(out)
         def step_labeling(df):
             out = df.copy()
+        
+            # pastikan content_list ada dan list
             if "content_list" not in out.columns:
                 out = step_tokenizing(out)
+            else:
+                out["content_list"] = out["content_list"].apply(ensure_list)
         
-            results = out["content_list"].apply(sentiment_analysis_lexicon_indonesia)
-            out["score"] = results.apply(lambda x: x[0])
-            out["Sentimen"] = results.apply(lambda x: x[1])
+            # normalisasi token
+            out["content_list"] = out["content_list"].apply(
+                lambda toks: [str(t).strip().lower() for t in (toks or []) if str(t).strip()]
+            )
+        
+            lex_pos = st.session_state.lex_pos or {}
+            lex_neg = st.session_state.lex_neg or {}
+        
+            # sesuai Colab: score dihitung dari token hasil filter lexicon
+            def filter_tokens_by_lexicon(tokens):
+                if not isinstance(tokens, list):
+                    return []
+                return [w for w in tokens if (w in lex_pos) or (w in lex_neg)]
+        
+            def sentiment_analysis_lexicon_indonesia(tokens):
+                score = 0
+                for w in tokens:
+                    if w in lex_pos:
+                        score += lex_pos[w]
+                for w in tokens:
+                    if w in lex_neg:
+                        score += lex_neg[w]
+        
+                if score > 0:
+                    sent = "positif"
+                elif score < 0:
+                    sent = "negatif"
+                else:
+                    sent = "netral"
+                return score, sent
+        
+            def score_and_sentiment(content_list):
+                toks = filter_tokens_by_lexicon(content_list)
+                return sentiment_analysis_lexicon_indonesia(toks)
+        
+            res = out["content_list"].apply(score_and_sentiment)
+            out["score"] = res.apply(lambda x: x[0])
+            out["Sentimen"] = res.apply(lambda x: x[1])
+        
+            # content_list ikut versi filter (sesuai Colab) + content ikut juga
+            out["content_list"] = out["content_list"].apply(filter_tokens_by_lexicon)
+            out["content"] = out["content_list"].apply(lambda x: " ".join(x) if isinstance(x, list) else "")
         
             return out
+
 
 
 
@@ -1308,3 +1373,4 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
