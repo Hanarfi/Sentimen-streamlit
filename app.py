@@ -312,6 +312,10 @@ def to_excel_bytes(df: pd.DataFrame, sheet_name="data") -> bytes:
         df.to_excel(writer, index=False, sheet_name=sheet_name)
     return buffer.getvalue()
 
+def to_csv_bytes(df: pd.DataFrame) -> bytes:
+    return df.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
+
+
 def plot_bar_counts(series: pd.Series, title: str):
     fig = plt.figure(figsize=(6, 4))
     counts = series.value_counts()
@@ -1044,12 +1048,21 @@ elif st.session_state.menu == "Proses":
                 # ✅ plot otomatis menyesuaikan data yang tersisa
                 plot_bar_counts(df_lab["Sentimen"], "Distribusi Sentimen (Lexicon)")
 
-            excel_bytes = to_excel_bytes(st.session_state.pp_labeled, sheet_name="preprocessing")
+            csv_bytes = to_csv_bytes(st.session_state.pp_labeled)
             st.download_button(
-                "⬇️ Download hasil preprocessing (Excel)",
-                data=excel_bytes,
-                file_name="hasil_preprocessing.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                "⬇️ Download hasil preprocessing (CSV)",
+                data=csv_bytes,
+                file_name="hasil_preprocessing.csv",
+                mime="text/csv"
+            )
+
+            
+            csv_bytes = to_csv_bytes(st.session_state.pp_labeled)
+            st.download_button(
+                "⬇️ Download hasil preprocessing (CSV)",
+                data=csv_bytes,
+                file_name="hasil_preprocessing.csv",
+                mime="text/csv"
             )
 
             if st.button("➡️ Lanjut ke Klasifikasi SVM"):
@@ -1291,12 +1304,12 @@ elif st.session_state.menu == "Klasifikasi SVM":
                     df_out = df.copy()
                     df_out["Prediksi_SVM"] = st.session_state.svm.predict(X_all)
 
-                    excel_bytes = to_excel_bytes(df_out, sheet_name="svm_results")
+                    csv_bytes = to_csv_bytes(df_out)
                     st.download_button(
-                        "⬇️ Download hasil klasifikasi (Excel)",
-                        data=excel_bytes,
-                        file_name="hasil_klasifikasi_svm.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        "⬇️ Download hasil klasifikasi (CSV)",
+                        data=csv_bytes,
+                        file_name="hasil_klasifikasi_svm.csv",
+                        mime="text/csv"
                     )
 
                     bundle = make_model_bundle(st.session_state.tfidf, st.session_state.svm)
@@ -1307,6 +1320,7 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
 
 
