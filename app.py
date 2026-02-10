@@ -755,6 +755,7 @@ elif st.session_state.menu == "Proses":
             )
         
             return out
+            
        def step_filterlex(df):
             """
             content_list -> ensure_list -> filtered_tokens -> filtered_text
@@ -787,7 +788,6 @@ elif st.session_state.menu == "Proses":
             out = out[out["content"].str.strip() != ""].reset_index(drop=True)
         
             return out
-        
         
         def step_labeling(df):
             """
@@ -1333,4 +1333,5 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
