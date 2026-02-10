@@ -757,12 +757,6 @@ elif st.session_state.menu == "Proses":
             return out
             
        def step_filterlex(df):
-            """
-            content_list -> ensure_list -> filtered_tokens -> filtered_text
-            TF-IDF pakai filtered_text, jadi:
-              - content_list = filtered_tokens
-              - content      = filtered_text
-            """
             out = df.copy()
         
             # pastikan content_list ada
@@ -790,10 +784,6 @@ elif st.session_state.menu == "Proses":
             return out
         
         def step_labeling(df):
-            """
-            Labeling pakai filtered_tokens (atau content_list kalau belum ada),
-            lalu hasil: score + Sentimen
-            """
             out = df.copy()
         
             lex_pos = st.session_state.lex_pos or {}
@@ -1333,5 +1323,6 @@ elif st.session_state.menu == "Klasifikasi SVM":
                         file_name="model_tfidf_svm.pkl",
                         mime="application/octet-stream"
                     )
+
 
 
